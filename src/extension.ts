@@ -88,6 +88,7 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
     },
   );
 
+  panel.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "icon.svg");
   panel.webview.html = getWebviewHtml(panel.webview, context.extensionUri);
 
   const controller = new PanelController(
