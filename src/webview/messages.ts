@@ -10,7 +10,7 @@ import type {
 
 /** Messages the webview sends to the extension host. */
 export type InboundMessage =
-  | { readonly type: "requestState" }
+  | { readonly type: "requestState"; readonly forceRefresh?: boolean }
   | { readonly type: "updateIssue"; readonly id: string; readonly patch: UpdateIssueInput }
   | { readonly type: "createIssue"; readonly input: CreateIssueInput }
   | { readonly type: "updateMilestone"; readonly id: string; readonly patch: UpdateMilestoneInput }

@@ -26,6 +26,7 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
   <div class="tabs">
     <button id="tab-issues" class="tab active" type="button">Issues</button>
     <button id="tab-milestones" class="tab" type="button">Milestones</button>
+    <button id="refresh-button" class="tab refresh" type="button" title="Refetch from the remote, bypassing the cache">&#8635; Refresh</button>
   </div>
 
   <div id="error-banner" class="error-banner" hidden></div>

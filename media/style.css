@@ -25,6 +25,10 @@ body {
   font-weight: 600;
 }
 
+.tab.refresh {
+  margin-left: auto;
+}
+
 .error-banner {
   background-color: var(--vscode-inputValidation-errorBackground);
   border: 1px solid var(--vscode-inputValidation-errorBorder);

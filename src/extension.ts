@@ -6,6 +6,7 @@ import type { ProviderKind } from "./core/models/issue.model";
 import type { IProjectProvider } from "./core/providers/project-provider.interface";
 import { GithubProvider, type GithubClient } from "./providers/github/github.provider";
 import { GitlabProvider, type GitlabClient } from "./providers/gitlab/gitlab.provider";
+import { CachingProjectProvider } from "./providers/caching-project-provider";
 import { generateBranchName } from "./core/automation/branch-name";
 import { PanelController } from "./webview/panel-controller";
 import type { InboundMessage } from "./webview/messages";
@@ -72,7 +73,11 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
     return;
   }
 
-  const provider = buildProvider(providerKind, repository, token);
+  const cacheTtlSeconds = config.get<number>("cacheTtlSeconds", 180);
+  const provider = new CachingProjectProvider(
+    buildProvider(providerKind, repository, token),
+    cacheTtlSeconds * 1000,
+  );
 
   const panel = vscode.window.createWebviewPanel(
     "remoteProjectManager",

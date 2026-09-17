@@ -36,6 +36,12 @@
           "type": "string",
           "default": "",
           "description": "Repository or project path, e.g. 'owner/repo'."
+        },
+        "remoteProjectManager.cacheTtlSeconds": {
+          "type": "number",
+          "default": 180,
+          "minimum": 0,
+          "description": "How long issue/milestone/capability reads are cached before refetching, in seconds. Use the panel's Refresh button to bypass the cache immediately."
         }
       }
     }

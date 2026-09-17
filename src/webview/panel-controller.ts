@@ -1,6 +1,6 @@
 import { detectIssueTransition, type IssueTransition } from "../core/automation/issue-transition";
 import type { IIssue } from "../core/models/issue.model";
-import type { IProjectProvider, UpdateIssueInput } from "../core/providers/project-provider.interface";
+import type { FetchOptions, IProjectProvider, UpdateIssueInput } from "../core/providers/project-provider.interface";
 import { assertCanWrite } from "../core/providers/project-provider.interface";
 import type { InboundMessage, OutboundMessage } from "./messages";
 
@@ -30,7 +30,7 @@ export class PanelController {
     try {
       switch (message.type) {
         case "requestState":
-          await this.sendState();
+          await this.sendState(message.forceRefresh ? { forceRefresh: true } : undefined);
           return;
         case "createIssue":
           await this.guardWrite("canWriteIssues");
@@ -77,11 +77,11 @@ export class PanelController {
     assertCanWrite(capabilities, permission);
   }
 
-  private async sendState(): Promise<void> {
+  private async sendState(options?: FetchOptions): Promise<void> {
     const [capabilities, issues, milestones] = await Promise.all([
-      this.provider.getCapabilities(),
-      this.provider.listIssues(),
-      this.provider.listMilestones(),
+      this.provider.getCapabilities(options),
+      this.provider.listIssues(options),
+      this.provider.listMilestones(options),
     ]);
     this.postMessage({ type: "state", issues, milestones, capabilities });
   }

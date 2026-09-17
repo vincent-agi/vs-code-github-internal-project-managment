@@ -76,6 +76,20 @@ describe("PanelController.handleMessage 'requestState'", () => {
   });
 });
 
+describe("PanelController.handleMessage 'requestState' with forceRefresh", () => {
+  it("forwards forceRefresh to the provider's read methods", async () => {
+    const provider = makeProvider(fullAccess);
+    const postMessage = vi.fn();
+    const controller = new PanelController(provider, postMessage);
+
+    await controller.handleMessage({ type: "requestState", forceRefresh: true });
+
+    expect(provider.listIssues).toHaveBeenCalledWith({ forceRefresh: true });
+    expect(provider.listMilestones).toHaveBeenCalledWith({ forceRefresh: true });
+    expect(provider.getCapabilities).toHaveBeenCalledWith({ forceRefresh: true });
+  });
+});
+
 describe("PanelController.handleMessage 'updateIssue'", () => {
   it("updates and re-sends state when the account can write", async () => {
     const provider = makeProvider(fullAccess);

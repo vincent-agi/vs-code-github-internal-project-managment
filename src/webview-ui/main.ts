@@ -37,7 +37,7 @@ type OutboundMessage =
   | { type: "error"; message: string };
 
 type InboundMessage =
-  | { type: "requestState" }
+  | { type: "requestState"; forceRefresh?: boolean }
   | { type: "updateIssue"; id: string; patch: Partial<Pick<IssueView, "title" | "body" | "state">> }
   | { type: "updateMilestone"; id: string; patch: Partial<Pick<MilestoneView, "title" | "description" | "state">> };
 
@@ -207,6 +207,9 @@ function setActiveTab(tab: "issues" | "milestones"): void {
 
 byId<HTMLButtonElement>("tab-issues").addEventListener("click", () => setActiveTab("issues"));
 byId<HTMLButtonElement>("tab-milestones").addEventListener("click", () => setActiveTab("milestones"));
+byId<HTMLButtonElement>("refresh-button").addEventListener("click", () => {
+  post({ type: "requestState", forceRefresh: true });
+});
 
 window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
   const message = event.data;
