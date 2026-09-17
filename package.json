@@ -19,11 +19,28 @@
         "command": "remoteProjectManager.openPanel",
         "title": "Remote Project Manager: Open Panel"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Remote Project Manager",
+      "properties": {
+        "remoteProjectManager.provider": {
+          "type": "string",
+          "enum": ["github", "gitlab"],
+          "default": "github",
+          "description": "Remote platform to connect to."
+        },
+        "remoteProjectManager.repository": {
+          "type": "string",
+          "default": "",
+          "description": "Repository or project path, e.g. 'owner/repo'."
+        }
+      }
+    }
   },
   "scripts": {
-    "compile": "tsc -p ./",
-    "watch": "tsc -w -p ./",
+    "compile": "tsc -p . && tsc -p tsconfig.webview.json",
+    "watch": "tsc -w -p .",
+    "watch:webview": "tsc -w -p tsconfig.webview.json",
     "test": "vitest run",
     "test:watch": "vitest"
   },

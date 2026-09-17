@@ -1,0 +1,46 @@
+import * as vscode from "vscode";
+
+/**
+ * Builds the HTML shell for the central panel webview. The actual UI
+ * logic lives in the bundled browser script at `dist/webview-ui/main.js`.
+ */
+export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
+  const scriptUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extensionUri, "dist", "webview-ui", "main.js"),
+  );
+  const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "style.css"));
+  const nonce = String(Math.floor(Math.random() * 1e18));
+
+  return /* html */ `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"
+  />
+  <link href="${styleUri}" rel="stylesheet" />
+  <title>Remote Project Manager</title>
+</head>
+<body>
+  <div class="tabs">
+    <button id="tab-issues" class="tab active" type="button">Issues</button>
+    <button id="tab-milestones" class="tab" type="button">Milestones</button>
+  </div>
+
+  <div id="error-banner" class="error-banner" hidden></div>
+
+  <div id="view-issues" class="view">
+    <div class="list" id="issue-list"></div>
+    <div class="detail" id="issue-detail"></div>
+  </div>
+
+  <div id="view-milestones" class="view" hidden>
+    <div class="list" id="milestone-list"></div>
+    <div class="detail" id="milestone-detail"></div>
+  </div>
+
+  <script nonce="${nonce}" src="${scriptUri}"></script>
+</body>
+</html>`;
+}
