@@ -1,0 +1,194 @@
+import type { IIssue } from "../../core/models/issue.model";
+import type { IMilestone } from "../../core/models/milestone.model";
+import type {
+  CreateIssueInput,
+  CreateMilestoneInput,
+  IProjectProvider,
+  ProviderCapabilities,
+  UpdateIssueInput,
+  UpdateMilestoneInput,
+} from "../../core/providers/project-provider.interface";
+import {
+  mapDomainIssueStateToGithub,
+  mapGithubIssueToDomain,
+  mapGithubMilestoneToDomain,
+  type RawGithubIssue,
+  type RawGithubMilestone,
+} from "./github.mappers";
+
+type RawGithubPullRequestIssue = RawGithubIssue & { pull_request?: unknown };
+
+/**
+ * Minimal slice of the Octokit REST client this provider depends on.
+ * Kept narrow so tests can supply a plain fake instead of a real Octokit
+ * instance.
+ */
+export interface GithubClient {
+  issues: {
+    listForRepo(params: { owner: string; repo: string; state: "all" }): Promise<{
+      data: readonly RawGithubPullRequestIssue[];
+    }>;
+    get(params: { owner: string; repo: string; issue_number: number }): Promise<{
+      data: RawGithubIssue;
+    }>;
+    create(params: Record<string, unknown>): Promise<{ data: RawGithubIssue }>;
+    update(params: Record<string, unknown>): Promise<{ data: RawGithubIssue }>;
+    listMilestones(params: { owner: string; repo: string; state: "all" }): Promise<{
+      data: readonly RawGithubMilestone[];
+    }>;
+    createMilestone(params: Record<string, unknown>): Promise<{ data: RawGithubMilestone }>;
+    updateMilestone(params: Record<string, unknown>): Promise<{ data: RawGithubMilestone }>;
+  };
+  repos: {
+    get(params: { owner: string; repo: string }): Promise<{
+      data: { permissions?: { pull?: boolean; push?: boolean } };
+    }>;
+  };
+}
+
+/**
+ * GitHub connector implementing {@link IProjectProvider} on top of Octokit.
+ *
+ * Issues are addressed by the composite id `"owner/repo#number"` produced
+ * by {@link mapGithubIssueToDomain}. Milestones are addressed by their
+ * internal GitHub id; since GitHub's milestone endpoints require the
+ * per-repo `milestone_number` instead, this provider resolves that number
+ * by listing milestones and matching on id.
+ */
+export class GithubProvider implements IProjectProvider {
+  constructor(
+    private readonly client: GithubClient,
+    private readonly owner: string,
+    private readonly repo: string,
+  ) {}
+
+  private get repoFullName(): string {
+    return `${this.owner}/${this.repo}`;
+  }
+
+  private parseIssueNumber(id: string): number {
+    const match = id.match(/#(\d+)$/);
+    if (!match) {
+      throw new Error(`Not a valid GitHub issue id: '${id}'`);
+    }
+    return Number(match[1]);
+  }
+
+  private async findRawMilestoneById(id: string): Promise<RawGithubMilestone> {
+    const { data } = await this.client.issues.listMilestones({
+      owner: this.owner,
+      repo: this.repo,
+      state: "all",
+    });
+    const found = data.find((milestone) => String(milestone.id) === id);
+    if (!found) {
+      throw new Error(`No milestone found with id '${id}' in ${this.repoFullName}`);
+    }
+    return found;
+  }
+
+  async getCapabilities(): Promise<ProviderCapabilities> {
+    const { data } = await this.client.repos.get({ owner: this.owner, repo: this.repo });
+    const canWrite = Boolean(data.permissions?.push);
+    const canRead = Boolean(data.permissions?.pull ?? true);
+    return {
+      canReadIssues: canRead,
+      canWriteIssues: canWrite,
+      canReadMilestones: canRead,
+      canWriteMilestones: canWrite,
+    };
+  }
+
+  async listIssues(): Promise<readonly IIssue[]> {
+    const { data } = await this.client.issues.listForRepo({
+      owner: this.owner,
+      repo: this.repo,
+      state: "all",
+    });
+    return data
+      .filter((issue) => !issue.pull_request)
+      .map((issue) => mapGithubIssueToDomain(issue, this.repoFullName));
+  }
+
+  async getIssue(id: string): Promise<IIssue> {
+    const issueNumber = this.parseIssueNumber(id);
+    const { data } = await this.client.issues.get({
+      owner: this.owner,
+      repo: this.repo,
+      issue_number: issueNumber,
+    });
+    return mapGithubIssueToDomain(data, this.repoFullName);
+  }
+
+  async createIssue(input: CreateIssueInput): Promise<IIssue> {
+    const { data } = await this.client.issues.create({
+      owner: this.owner,
+      repo: this.repo,
+      title: input.title,
+      body: input.body,
+      labels: input.labels,
+      assignees: input.assignees,
+    });
+    return mapGithubIssueToDomain(data, this.repoFullName);
+  }
+
+  async updateIssue(id: string, patch: UpdateIssueInput): Promise<IIssue> {
+    const issueNumber = this.parseIssueNumber(id);
+    let milestoneNumber: number | null | undefined;
+    if (patch.milestoneId === null) {
+      milestoneNumber = null;
+    } else if (patch.milestoneId !== undefined) {
+      milestoneNumber = (await this.findRawMilestoneById(patch.milestoneId)).number;
+    }
+    const { data } = await this.client.issues.update({
+      owner: this.owner,
+      repo: this.repo,
+      issue_number: issueNumber,
+      title: patch.title,
+      body: patch.body,
+      state: patch.state ? mapDomainIssueStateToGithub(patch.state) : undefined,
+      labels: patch.labels,
+      assignees: patch.assignees,
+      milestone: milestoneNumber,
+    });
+    return mapGithubIssueToDomain(data, this.repoFullName);
+  }
+
+  async listMilestones(): Promise<readonly IMilestone[]> {
+    const { data } = await this.client.issues.listMilestones({
+      owner: this.owner,
+      repo: this.repo,
+      state: "all",
+    });
+    return data.map(mapGithubMilestoneToDomain);
+  }
+
+  async getMilestone(id: string): Promise<IMilestone> {
+    return mapGithubMilestoneToDomain(await this.findRawMilestoneById(id));
+  }
+
+  async createMilestone(input: CreateMilestoneInput): Promise<IMilestone> {
+    const { data } = await this.client.issues.createMilestone({
+      owner: this.owner,
+      repo: this.repo,
+      title: input.title,
+      description: input.description,
+      due_on: input.dueOn ?? undefined,
+    });
+    return mapGithubMilestoneToDomain(data);
+  }
+
+  async updateMilestone(id: string, patch: UpdateMilestoneInput): Promise<IMilestone> {
+    const raw = await this.findRawMilestoneById(id);
+    const { data } = await this.client.issues.updateMilestone({
+      owner: this.owner,
+      repo: this.repo,
+      milestone_number: raw.number,
+      title: patch.title,
+      description: patch.description,
+      state: patch.state,
+      due_on: patch.dueOn ?? undefined,
+    });
+    return mapGithubMilestoneToDomain(data);
+  }
+}

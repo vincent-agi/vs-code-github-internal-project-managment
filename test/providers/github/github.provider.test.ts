@@ -1,0 +1,212 @@
+import { describe, expect, it, vi } from "vitest";
+import { GithubProvider, type GithubClient } from "../../../src/providers/github/github.provider";
+
+function makeClient(overrides: Partial<GithubClient> = {}): GithubClient {
+  return {
+    issues: {
+      listForRepo: vi.fn().mockResolvedValue({ data: [] }),
+      get: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      listMilestones: vi.fn().mockResolvedValue({ data: [] }),
+      createMilestone: vi.fn(),
+      updateMilestone: vi.fn(),
+    },
+    repos: {
+      get: vi.fn(),
+    },
+    ...overrides,
+  } as unknown as GithubClient;
+}
+
+const rawIssue = {
+  id: 1,
+  number: 42,
+  title: "Bug",
+  body: "desc",
+  state: "open" as const,
+  labels: [],
+  assignees: [],
+  milestone: null,
+  html_url: "https://github.com/acme/widgets/issues/42",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
+const rawPullRequest = { ...rawIssue, number: 43, pull_request: {} };
+
+const rawMilestone = {
+  id: 7,
+  number: 3,
+  title: "v1.0",
+  description: "",
+  state: "open" as const,
+  due_on: null,
+  html_url: "https://github.com/acme/widgets/milestone/3",
+};
+
+describe("GithubProvider.listIssues", () => {
+  it("maps issues and excludes pull requests", async () => {
+    const client = makeClient({
+      issues: {
+        listForRepo: vi.fn().mockResolvedValue({ data: [rawIssue, rawPullRequest] }),
+      } as unknown as GithubClient["issues"],
+    });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const issues = await provider.listIssues();
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0].number).toBe(42);
+  });
+});
+
+describe("GithubProvider.getIssue", () => {
+  it("fetches by the number embedded in the composite id", async () => {
+    const get = vi.fn().mockResolvedValue({ data: rawIssue });
+    const client = makeClient({ issues: { get } as unknown as GithubClient["issues"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const issue = await provider.getIssue("acme/widgets#42");
+
+    expect(get).toHaveBeenCalledWith({ owner: "acme", repo: "widgets", issue_number: 42 });
+    expect(issue.id).toBe("acme/widgets#42");
+  });
+});
+
+describe("GithubProvider.createIssue", () => {
+  it("sends title and body and maps the response", async () => {
+    const create = vi.fn().mockResolvedValue({ data: rawIssue });
+    const client = makeClient({ issues: { create } as unknown as GithubClient["issues"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const issue = await provider.createIssue({ title: "Bug", body: "desc" });
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: "acme", repo: "widgets", title: "Bug", body: "desc" }),
+    );
+    expect(issue.number).toBe(42);
+  });
+});
+
+describe("GithubProvider.updateIssue", () => {
+  it("maps the domain state to GitHub's state field", async () => {
+    const update = vi.fn().mockResolvedValue({ data: { ...rawIssue, state: "closed" } });
+    const client = makeClient({ issues: { update } as unknown as GithubClient["issues"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const issue = await provider.updateIssue("acme/widgets#42", { state: "closed" });
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: "acme", repo: "widgets", issue_number: 42, state: "closed" }),
+    );
+    expect(issue.state).toBe("closed");
+  });
+});
+
+describe("GithubProvider.listMilestones", () => {
+  it("maps milestones", async () => {
+    const client = makeClient({
+      issues: { listMilestones: vi.fn().mockResolvedValue({ data: [rawMilestone] }) } as unknown as GithubClient["issues"],
+    });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const milestones = await provider.listMilestones();
+
+    expect(milestones).toEqual([
+      {
+        id: "7",
+        number: 3,
+        title: "v1.0",
+        description: "",
+        state: "open",
+        dueOn: null,
+        url: "https://github.com/acme/widgets/milestone/3",
+        provider: "github",
+      },
+    ]);
+  });
+});
+
+describe("GithubProvider.getMilestone", () => {
+  it("finds the milestone by domain id among all milestones", async () => {
+    const client = makeClient({
+      issues: { listMilestones: vi.fn().mockResolvedValue({ data: [rawMilestone] }) } as unknown as GithubClient["issues"],
+    });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const milestone = await provider.getMilestone("7");
+
+    expect(milestone.title).toBe("v1.0");
+  });
+
+  it("throws when no milestone matches the id", async () => {
+    const client = makeClient({
+      issues: { listMilestones: vi.fn().mockResolvedValue({ data: [] }) } as unknown as GithubClient["issues"],
+    });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    await expect(provider.getMilestone("999")).rejects.toThrow(/999/);
+  });
+});
+
+describe("GithubProvider.createMilestone", () => {
+  it("sends title and maps the response", async () => {
+    const createMilestone = vi.fn().mockResolvedValue({ data: rawMilestone });
+    const client = makeClient({ issues: { createMilestone } as unknown as GithubClient["issues"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const milestone = await provider.createMilestone({ title: "v1.0" });
+
+    expect(createMilestone).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: "acme", repo: "widgets", title: "v1.0" }),
+    );
+    expect(milestone.id).toBe("7");
+  });
+});
+
+describe("GithubProvider.updateMilestone", () => {
+  it("resolves the milestone_number from the domain id, then updates", async () => {
+    const listMilestones = vi.fn().mockResolvedValue({ data: [rawMilestone] });
+    const updateMilestone = vi.fn().mockResolvedValue({ data: { ...rawMilestone, state: "closed" } });
+    const client = makeClient({
+      issues: { listMilestones, updateMilestone } as unknown as GithubClient["issues"],
+    });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const milestone = await provider.updateMilestone("7", { state: "closed" });
+
+    expect(updateMilestone).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: "acme", repo: "widgets", milestone_number: 3, state: "closed" }),
+    );
+    expect(milestone.state).toBe("closed");
+  });
+});
+
+describe("GithubProvider.getCapabilities", () => {
+  it("maps push permission to write capability", async () => {
+    const get = vi.fn().mockResolvedValue({ data: { permissions: { pull: true, push: true, admin: false } } });
+    const client = makeClient({ repos: { get } as unknown as GithubClient["repos"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const capabilities = await provider.getCapabilities();
+
+    expect(capabilities).toEqual({
+      canReadIssues: true,
+      canWriteIssues: true,
+      canReadMilestones: true,
+      canWriteMilestones: true,
+    });
+  });
+
+  it("maps missing push permission to read-only", async () => {
+    const get = vi.fn().mockResolvedValue({ data: { permissions: { pull: true, push: false, admin: false } } });
+    const client = makeClient({ repos: { get } as unknown as GithubClient["repos"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const capabilities = await provider.getCapabilities();
+
+    expect(capabilities.canWriteIssues).toBe(false);
+    expect(capabilities.canWriteMilestones).toBe(false);
+  });
+});
