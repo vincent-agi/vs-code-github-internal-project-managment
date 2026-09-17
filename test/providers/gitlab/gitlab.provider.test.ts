@@ -18,6 +18,9 @@ function makeClient(overrides: Partial<GitlabClient> = {}): GitlabClient {
     Projects: {
       show: vi.fn(),
     },
+    Users: {
+      showCurrentUser: vi.fn(),
+    },
     ...overrides,
   } as unknown as GitlabClient;
 }
@@ -183,6 +186,18 @@ describe("GitlabProvider.updateMilestone", () => {
       expect.objectContaining({ state_event: "close" }),
     );
     expect(milestone.state).toBe("closed");
+  });
+});
+
+describe("GitlabProvider.getCurrentUser", () => {
+  it("returns the current user's username", async () => {
+    const showCurrentUser = vi.fn().mockResolvedValue({ username: "octocat" });
+    const client = makeClient({ Users: { showCurrentUser } as unknown as GitlabClient["Users"] });
+    const provider = new GitlabProvider(client, "acme/widgets");
+
+    const user = await provider.getCurrentUser();
+
+    expect(user).toEqual({ username: "octocat" });
   });
 });
 

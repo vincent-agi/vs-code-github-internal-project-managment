@@ -46,6 +46,21 @@ export interface UpdateMilestoneInput {
   readonly dueOn?: string | null;
 }
 
+/** The account currently authenticated against a provider. */
+export interface IAuthenticatedUser {
+  /** Login/username as used in issue `assignees` for this provider. */
+  readonly username: string;
+}
+
+/**
+ * Options accepted by read operations. `forceRefresh` tells a caching
+ * decorator (e.g. `CachingProjectProvider`) to bypass its TTL cache and
+ * hit the remote API, used for the webview's manual "Refresh" action.
+ */
+export interface FetchOptions {
+  readonly forceRefresh?: boolean;
+}
+
 /**
  * Abstract contract every remote project management provider (GitHub,
  * GitLab, ...) must implement. UI and application code depend only on
@@ -53,14 +68,17 @@ export interface UpdateMilestoneInput {
  */
 export interface IProjectProvider {
   /** Permissions the active account currently has on this provider. */
-  getCapabilities(): Promise<ProviderCapabilities>;
+  getCapabilities(options?: FetchOptions): Promise<ProviderCapabilities>;
 
-  listIssues(): Promise<readonly IIssue[]>;
+  /** The account the current token/session belongs to. */
+  getCurrentUser(): Promise<IAuthenticatedUser>;
+
+  listIssues(options?: FetchOptions): Promise<readonly IIssue[]>;
   getIssue(id: string): Promise<IIssue>;
   createIssue(input: CreateIssueInput): Promise<IIssue>;
   updateIssue(id: string, patch: UpdateIssueInput): Promise<IIssue>;
 
-  listMilestones(): Promise<readonly IMilestone[]>;
+  listMilestones(options?: FetchOptions): Promise<readonly IMilestone[]>;
   getMilestone(id: string): Promise<IMilestone>;
   createMilestone(input: CreateMilestoneInput): Promise<IMilestone>;
   updateMilestone(id: string, patch: UpdateMilestoneInput): Promise<IMilestone>;

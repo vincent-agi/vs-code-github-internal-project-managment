@@ -15,6 +15,9 @@ function makeClient(overrides: Partial<GithubClient> = {}): GithubClient {
     repos: {
       get: vi.fn(),
     },
+    users: {
+      getAuthenticated: vi.fn(),
+    },
     ...overrides,
   } as unknown as GithubClient;
 }
@@ -180,6 +183,18 @@ describe("GithubProvider.updateMilestone", () => {
       expect.objectContaining({ owner: "acme", repo: "widgets", milestone_number: 3, state: "closed" }),
     );
     expect(milestone.state).toBe("closed");
+  });
+});
+
+describe("GithubProvider.getCurrentUser", () => {
+  it("returns the authenticated account's login as username", async () => {
+    const getAuthenticated = vi.fn().mockResolvedValue({ data: { login: "octocat" } });
+    const client = makeClient({ users: { getAuthenticated } as unknown as GithubClient["users"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const user = await provider.getCurrentUser();
+
+    expect(user).toEqual({ username: "octocat" });
   });
 });
 

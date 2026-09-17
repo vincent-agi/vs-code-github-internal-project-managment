@@ -3,6 +3,8 @@ import type { IMilestone } from "../../core/models/milestone.model";
 import type {
   CreateIssueInput,
   CreateMilestoneInput,
+  FetchOptions,
+  IAuthenticatedUser,
   IProjectProvider,
   ProviderCapabilities,
   UpdateIssueInput,
@@ -44,6 +46,9 @@ export interface GitlabClient {
       };
     }>;
   };
+  Users: {
+    showCurrentUser(): Promise<{ username: string }>;
+  };
 }
 
 /**
@@ -68,7 +73,12 @@ export class GitlabProvider implements IProjectProvider {
     return Number(match[1]);
   }
 
-  async getCapabilities(): Promise<ProviderCapabilities> {
+  async getCurrentUser(): Promise<IAuthenticatedUser> {
+    const user = await this.client.Users.showCurrentUser();
+    return { username: user.username };
+  }
+
+  async getCapabilities(_options?: FetchOptions): Promise<ProviderCapabilities> {
     const project = await this.client.Projects.show(this.projectPath);
     const accessLevel =
       project.permissions?.project_access?.access_level ??
@@ -83,7 +93,7 @@ export class GitlabProvider implements IProjectProvider {
     };
   }
 
-  async listIssues(): Promise<readonly IIssue[]> {
+  async listIssues(_options?: FetchOptions): Promise<readonly IIssue[]> {
     const rawIssues = await this.client.Issues.all({ projectId: this.projectPath, scope: "all" });
     return rawIssues.map((issue) => mapGitlabIssueToDomain(issue, this.projectPath));
   }
@@ -116,7 +126,7 @@ export class GitlabProvider implements IProjectProvider {
     return mapGitlabIssueToDomain(raw, this.projectPath);
   }
 
-  async listMilestones(): Promise<readonly IMilestone[]> {
+  async listMilestones(_options?: FetchOptions): Promise<readonly IMilestone[]> {
     const rawMilestones = await this.client.ProjectMilestones.all(this.projectPath);
     return rawMilestones.map(mapGitlabMilestoneToDomain);
   }

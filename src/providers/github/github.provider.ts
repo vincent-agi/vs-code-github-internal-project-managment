@@ -3,6 +3,8 @@ import type { IMilestone } from "../../core/models/milestone.model";
 import type {
   CreateIssueInput,
   CreateMilestoneInput,
+  FetchOptions,
+  IAuthenticatedUser,
   IProjectProvider,
   ProviderCapabilities,
   UpdateIssueInput,
@@ -43,6 +45,9 @@ export interface GithubClient {
     get(params: { owner: string; repo: string }): Promise<{
       data: { permissions?: { pull?: boolean; push?: boolean } };
     }>;
+  };
+  users: {
+    getAuthenticated(): Promise<{ data: { login: string } }>;
   };
 }
 
@@ -87,7 +92,12 @@ export class GithubProvider implements IProjectProvider {
     return found;
   }
 
-  async getCapabilities(): Promise<ProviderCapabilities> {
+  async getCurrentUser(): Promise<IAuthenticatedUser> {
+    const { data } = await this.client.users.getAuthenticated();
+    return { username: data.login };
+  }
+
+  async getCapabilities(_options?: FetchOptions): Promise<ProviderCapabilities> {
     const { data } = await this.client.repos.get({ owner: this.owner, repo: this.repo });
     const canWrite = Boolean(data.permissions?.push);
     const canRead = Boolean(data.permissions?.pull ?? true);
@@ -99,7 +109,7 @@ export class GithubProvider implements IProjectProvider {
     };
   }
 
-  async listIssues(): Promise<readonly IIssue[]> {
+  async listIssues(_options?: FetchOptions): Promise<readonly IIssue[]> {
     const { data } = await this.client.issues.listForRepo({
       owner: this.owner,
       repo: this.repo,
@@ -154,7 +164,7 @@ export class GithubProvider implements IProjectProvider {
     return mapGithubIssueToDomain(data, this.repoFullName);
   }
 
-  async listMilestones(): Promise<readonly IMilestone[]> {
+  async listMilestones(_options?: FetchOptions): Promise<readonly IMilestone[]> {
     const { data } = await this.client.issues.listMilestones({
       owner: this.owner,
       repo: this.repo,

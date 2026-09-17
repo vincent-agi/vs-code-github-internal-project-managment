@@ -33,6 +33,7 @@ const milestone: IMilestone = {
 function makeProvider(capabilities: ProviderCapabilities): IProjectProvider {
   return {
     getCapabilities: vi.fn().mockResolvedValue(capabilities),
+    getCurrentUser: vi.fn().mockResolvedValue({ username: "octocat" }),
     listIssues: vi.fn().mockResolvedValue([issue]),
     getIssue: vi.fn().mockResolvedValue(issue),
     createIssue: vi.fn().mockResolvedValue(issue),

@@ -25,7 +25,10 @@
       "properties": {
         "remoteProjectManager.provider": {
           "type": "string",
-          "enum": ["github", "gitlab"],
+          "enum": [
+            "github",
+            "gitlab"
+          ],
           "default": "github",
           "description": "Remote platform to connect to."
         },
@@ -52,6 +55,7 @@
   },
   "dependencies": {
     "@gitbeaker/rest": "^43.8.0",
-    "@octokit/rest": "^22.0.1"
+    "@octokit/rest": "^22.0.1",
+    "simple-git": "^3.36.0"
   }
 }
