@@ -2,6 +2,8 @@
 
 Manage GitHub and GitLab **Issues** and **Milestones** from a single panel inside VS Code — and automatically create a git branch when you start working on an issue.
 
+> **New here?** Follow the [Getting Started guide](GETTING_STARTED.md) for a step-by-step walkthrough: install the extension, connect a repository, and use the panel — no prior knowledge needed.
+
 ## Overview
 
 Remote Project Manager opens a central panel in the editor area where you can view, filter, edit, and update Issues and Milestones for a GitHub or GitLab repository. Changes made in the panel are written back to the remote platform in real time, respecting your account's actual permissions.
@@ -81,7 +83,7 @@ See [Issues and Milestones Management](docs/functionals/02-issues-and-milestones
 
 ## Documentation
 
-Deep-dive functional guides live in [`docs/functionals/`](docs/functionals/INDEX.md):
+New to the extension? Start with [Getting Started](GETTING_STARTED.md). Deep-dive functional guides live in [`docs/functionals/`](docs/functionals/INDEX.md):
 
 - [01 — Authentication and Security](docs/functionals/01-authentication-and-security.md)
 - [02 — Issues and Milestones Management](docs/functionals/02-issues-and-milestones-management.md)
