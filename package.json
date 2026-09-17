@@ -1,0 +1,34 @@
+{
+  "name": "remote-project-manager",
+  "displayName": "Remote Project Manager",
+  "description": "View and manage GitHub and GitLab Issues and Milestones from a central panel in VS Code.",
+  "version": "0.0.1",
+  "publisher": "local-dev",
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=18"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "remoteProjectManager.openPanel",
+        "title": "Remote Project Manager: Open Panel"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -w -p ./",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}
