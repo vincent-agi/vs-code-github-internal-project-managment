@@ -10,6 +10,9 @@ import { CachingProjectProvider } from "./providers/caching-project-provider";
 import { SimpleGitService } from "./providers/git/simple-git.service";
 import { resolveRepositoryCandidates, type RepositoryCandidate } from "./core/workspace/repository-resolver";
 import { generateBranchName } from "./core/automation/branch-name";
+import { shouldAutoCreateBranch } from "./core/automation/auto-branch-guard";
+import { BranchManager } from "./core/git/branch-manager";
+import type { DirtyTreeDecision } from "./core/git/branch-manager.interface";
 import { PanelController } from "./webview/panel-controller";
 import type { InboundMessage, RepositoryOptionView } from "./webview/messages";
 import { getWebviewHtml } from "./webview/webview-html";
@@ -103,14 +106,21 @@ function createPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
  * webview picker when more than one workspace folder matches.
  */
 async function resolveRepository(): Promise<
-  { kind: "resolved"; providerKind: ProviderKind; repository: string } | { kind: "candidates"; candidates: RepositoryCandidate[] } | { kind: "none" }
+  | { kind: "resolved"; providerKind: ProviderKind; repository: string; folderPath?: string }
+  | { kind: "candidates"; candidates: RepositoryCandidate[] }
+  | { kind: "none" }
 > {
   const config = vscode.workspace.getConfiguration("remoteProjectManager");
   const providerKindSetting = config.get<ProviderKind>("provider", "github");
   const repositorySetting = config.get<string>("repository", "");
 
   if (repositorySetting.includes("/")) {
-    return { kind: "resolved", providerKind: providerKindSetting, repository: repositorySetting };
+    return {
+      kind: "resolved",
+      providerKind: providerKindSetting,
+      repository: repositorySetting,
+      folderPath: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+    };
   }
 
   const gitService = new SimpleGitService();
@@ -128,7 +138,12 @@ async function resolveRepository(): Promise<
     return { kind: "none" };
   }
   if (candidates.length === 1) {
-    return { kind: "resolved", providerKind: candidates[0].provider, repository: candidates[0].repository };
+    return {
+      kind: "resolved",
+      providerKind: candidates[0].provider,
+      repository: candidates[0].repository,
+      folderPath: candidates[0].folderPath,
+    };
   }
   return { kind: "candidates", candidates };
 }
@@ -142,18 +157,70 @@ function toRepositoryOptionView(candidate: RepositoryCandidate): RepositoryOptio
   };
 }
 
+/** Asks the user how to proceed given a dirty working tree, via a modal. */
+async function promptDirtyWorkingTree(issueNumber: number): Promise<DirtyTreeDecision> {
+  const stashChoice = "Stash & Continue";
+  const forceChoice = "Force Switch";
+  const cancelChoice = "Cancel";
+  const choice = await vscode.window.showWarningMessage(
+    `Your working tree has uncommitted changes. Creating a branch for issue #${issueNumber} will switch branches.`,
+    { modal: true },
+    stashChoice,
+    forceChoice,
+    cancelChoice,
+  );
+  if (choice === stashChoice) {
+    return "stash";
+  }
+  if (choice === forceChoice) {
+    return "force";
+  }
+  return "cancel";
+}
+
+/**
+ * Reports a BranchManager outcome to the user. "cancelled" is
+ * deliberately silent: the user just declined via the dirty-tree prompt.
+ */
+function reportBranchCreationOutcome(
+  result: Awaited<ReturnType<BranchManager["createBranchForIssue"]>>,
+): void {
+  switch (result.status) {
+    case "created":
+      void vscode.window.showInformationMessage(`Switched to new branch '${result.branchName}'.`);
+      break;
+    case "invalid-name":
+      void vscode.window.showErrorMessage(
+        `Generated branch name '${result.branchName}' is not a valid git ref. Check 'remoteProjectManager.branchNamePattern'.`,
+      );
+      break;
+    case "error":
+      void vscode.window.showErrorMessage(`Could not create branch: ${result.message}`);
+      break;
+    case "cancelled":
+      break;
+  }
+}
+
 /** Builds a fully wired PanelController for a resolved provider/repository. */
 async function buildController(
   context: vscode.ExtensionContext,
   panel: vscode.WebviewPanel,
   providerKind: ProviderKind,
   repository: string,
+  folderPath: string | undefined,
 ): Promise<PanelController> {
   const credentialStore = makeCredentialStore(context.secrets);
   const token = await resolveToken(providerKind, credentialStore);
 
-  const cacheTtlSeconds = vscode.workspace.getConfiguration("remoteProjectManager").get<number>("cacheTtlSeconds", 180);
+  const config = vscode.workspace.getConfiguration("remoteProjectManager");
+  const cacheTtlSeconds = config.get<number>("cacheTtlSeconds", 180);
   const provider = new CachingProjectProvider(buildProvider(providerKind, repository, token), cacheTtlSeconds * 1000);
+
+  const autoBranchEnabled = config.get<boolean>("autoBranchOnInProgress", true);
+  const branchNamePattern = config.get<string>("branchNamePattern", "");
+  const branchManager = new BranchManager(new SimpleGitService());
+  const currentUser = await provider.getCurrentUser();
 
   return new PanelController(
     provider,
@@ -161,11 +228,22 @@ async function buildController(
       void panel.webview.postMessage(message);
     },
     (issue, transition) => {
-      if (transition === "started-in-progress") {
-        void vscode.window.showInformationMessage(
-          `Issue #${issue.number} moved to in-progress. Suggested branch: ${generateBranchName(issue)}`,
-        );
+      if (!shouldAutoCreateBranch(issue, transition, currentUser.username)) {
+        return;
       }
+
+      const pattern = branchNamePattern || undefined;
+
+      if (!autoBranchEnabled || !folderPath) {
+        void vscode.window.showInformationMessage(
+          `Issue #${issue.number} moved to in-progress. Suggested branch: ${generateBranchName(issue, pattern)}`,
+        );
+        return;
+      }
+
+      void branchManager
+        .createBranchForIssue(issue, folderPath, { onDirtyWorkingTree: () => promptDirtyWorkingTree(issue.number) }, pattern)
+        .then(reportBranchCreationOutcome);
     },
   );
 }
@@ -185,7 +263,7 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
   if (resolution.kind === "resolved") {
     let controller: PanelController;
     try {
-      controller = await buildController(context, panel, resolution.providerKind, resolution.repository);
+      controller = await buildController(context, panel, resolution.providerKind, resolution.repository, resolution.folderPath);
     } catch (error) {
       void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
       return;
@@ -221,7 +299,7 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
         return;
       }
       try {
-        controller = await buildController(context, panel, chosen.provider, chosen.repository);
+        controller = await buildController(context, panel, chosen.provider, chosen.repository, chosen.folderPath);
       } catch (error) {
         void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
         return;

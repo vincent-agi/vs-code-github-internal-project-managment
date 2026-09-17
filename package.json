@@ -42,6 +42,16 @@
           "default": 180,
           "minimum": 0,
           "description": "How long issue/milestone/capability reads are cached before refetching, in seconds. Use the panel's Refresh button to bypass the cache immediately."
+        },
+        "remoteProjectManager.autoBranchOnInProgress": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically create and check out a git branch when an issue assigned to you moves to 'in-progress'. When off, a suggested branch name is shown instead."
+        },
+        "remoteProjectManager.branchNamePattern": {
+          "type": "string",
+          "default": "${type}/${issue_id}-${slug}",
+          "description": "Pattern for auto-created branch names. Placeholders: ${type} (inferred from labels, e.g. fix/feature/docs/issue), ${issue_id} (issue number), ${slug} (sanitized title)."
         }
       }
     }
