@@ -7,9 +7,11 @@ import type { IProjectProvider } from "./core/providers/project-provider.interfa
 import { GithubProvider, type GithubClient } from "./providers/github/github.provider";
 import { GitlabProvider, type GitlabClient } from "./providers/gitlab/gitlab.provider";
 import { CachingProjectProvider } from "./providers/caching-project-provider";
+import { SimpleGitService } from "./providers/git/simple-git.service";
+import { resolveRepositoryCandidates, type RepositoryCandidate } from "./core/workspace/repository-resolver";
 import { generateBranchName } from "./core/automation/branch-name";
 import { PanelController } from "./webview/panel-controller";
-import type { InboundMessage } from "./webview/messages";
+import type { InboundMessage, RepositoryOptionView } from "./webview/messages";
 import { getWebviewHtml } from "./webview/webview-html";
 
 function secretKeyFor(provider: ProviderKind): string {
@@ -74,33 +76,7 @@ function buildProvider(providerKind: ProviderKind, repository: string, token: st
   return new GitlabProvider(gitlab as unknown as GitlabClient, repository);
 }
 
-async function openPanel(context: vscode.ExtensionContext): Promise<void> {
-  const config = vscode.workspace.getConfiguration("remoteProjectManager");
-  const providerKind = config.get<ProviderKind>("provider", "github");
-  const repository = config.get<string>("repository", "");
-
-  if (!repository.includes("/")) {
-    void vscode.window.showErrorMessage(
-      "Set 'remoteProjectManager.repository' to 'owner/repo' (or 'namespace/project' for GitLab) before opening the panel.",
-    );
-    return;
-  }
-
-  const credentialStore = makeCredentialStore(context.secrets);
-  let token: string;
-  try {
-    token = await resolveToken(providerKind, credentialStore);
-  } catch (error) {
-    void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
-    return;
-  }
-
-  const cacheTtlSeconds = config.get<number>("cacheTtlSeconds", 180);
-  const provider = new CachingProjectProvider(
-    buildProvider(providerKind, repository, token),
-    cacheTtlSeconds * 1000,
-  );
-
+function createPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
   const panel = vscode.window.createWebviewPanel(
     "remoteProjectManager",
     "Remote Project Manager",
@@ -114,11 +90,72 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
       ],
     },
   );
-
   panel.iconPath = vscode.Uri.joinPath(context.extensionUri, "media", "icon.svg");
   panel.webview.html = getWebviewHtml(panel.webview, context.extensionUri);
+  return panel;
+}
 
-  const controller = new PanelController(
+/**
+ * Resolves which repository to connect to: an explicit
+ * `remoteProjectManager.repository` setting wins outright; otherwise
+ * every workspace folder's `origin` remote is inspected (see ADR-0003).
+ * Returns a single resolved repository, or a list of candidates for the
+ * webview picker when more than one workspace folder matches.
+ */
+async function resolveRepository(): Promise<
+  { kind: "resolved"; providerKind: ProviderKind; repository: string } | { kind: "candidates"; candidates: RepositoryCandidate[] } | { kind: "none" }
+> {
+  const config = vscode.workspace.getConfiguration("remoteProjectManager");
+  const providerKindSetting = config.get<ProviderKind>("provider", "github");
+  const repositorySetting = config.get<string>("repository", "");
+
+  if (repositorySetting.includes("/")) {
+    return { kind: "resolved", providerKind: providerKindSetting, repository: repositorySetting };
+  }
+
+  const gitService = new SimpleGitService();
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  const remotes = await Promise.all(
+    folders.map(async (folder) => ({
+      folderPath: folder.uri.fsPath,
+      folderName: folder.name,
+      remoteUrl: await gitService.getRemoteUrl(folder.uri.fsPath),
+    })),
+  );
+  const candidates = resolveRepositoryCandidates(remotes);
+
+  if (candidates.length === 0) {
+    return { kind: "none" };
+  }
+  if (candidates.length === 1) {
+    return { kind: "resolved", providerKind: candidates[0].provider, repository: candidates[0].repository };
+  }
+  return { kind: "candidates", candidates };
+}
+
+function toRepositoryOptionView(candidate: RepositoryCandidate): RepositoryOptionView {
+  return {
+    id: candidate.folderPath,
+    label: `${candidate.folderName} — ${candidate.provider}:${candidate.repository}`,
+    provider: candidate.provider,
+    repository: candidate.repository,
+  };
+}
+
+/** Builds a fully wired PanelController for a resolved provider/repository. */
+async function buildController(
+  context: vscode.ExtensionContext,
+  panel: vscode.WebviewPanel,
+  providerKind: ProviderKind,
+  repository: string,
+): Promise<PanelController> {
+  const credentialStore = makeCredentialStore(context.secrets);
+  const token = await resolveToken(providerKind, credentialStore);
+
+  const cacheTtlSeconds = vscode.workspace.getConfiguration("remoteProjectManager").get<number>("cacheTtlSeconds", 180);
+  const provider = new CachingProjectProvider(buildProvider(providerKind, repository, token), cacheTtlSeconds * 1000);
+
+  return new PanelController(
     provider,
     (message) => {
       void panel.webview.postMessage(message);
@@ -131,9 +168,66 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
       }
     },
   );
+}
 
-  panel.webview.onDidReceiveMessage((message: InboundMessage) => {
-    void controller.handleMessage(message);
+async function openPanel(context: vscode.ExtensionContext): Promise<void> {
+  const resolution = await resolveRepository();
+
+  if (resolution.kind === "none") {
+    void vscode.window.showErrorMessage(
+      "No GitHub/GitLab repository detected in this workspace. Set 'remoteProjectManager.repository' to 'owner/repo' manually.",
+    );
+    return;
+  }
+
+  const panel = createPanel(context);
+
+  if (resolution.kind === "resolved") {
+    let controller: PanelController;
+    try {
+      controller = await buildController(context, panel, resolution.providerKind, resolution.repository);
+    } catch (error) {
+      void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    panel.webview.onDidReceiveMessage((message: InboundMessage) => {
+      void controller.handleMessage(message);
+    });
+    return;
+  }
+
+  // Multiple candidates: let the webview's picker choose before building
+  // any provider, so no token is requested until a repository is picked.
+  const candidates = resolution.candidates;
+  let controller: PanelController | undefined;
+
+  panel.webview.onDidReceiveMessage(async (message: InboundMessage) => {
+    if (controller) {
+      void controller.handleMessage(message);
+      return;
+    }
+
+    if (message.type === "requestState") {
+      void panel.webview.postMessage({
+        type: "repositoryOptions",
+        options: candidates.map(toRepositoryOptionView),
+      });
+      return;
+    }
+
+    if (message.type === "selectRepository") {
+      const chosen = candidates.find((candidate) => candidate.folderPath === message.id);
+      if (!chosen) {
+        return;
+      }
+      try {
+        controller = await buildController(context, panel, chosen.provider, chosen.repository);
+      } catch (error) {
+        void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
+        return;
+      }
+      void controller.handleMessage({ type: "requestState" });
+    }
   });
 }
 

@@ -1,4 +1,4 @@
-import type { IIssue } from "../core/models/issue.model";
+import type { IIssue, ProviderKind } from "../core/models/issue.model";
 import type { IMilestone } from "../core/models/milestone.model";
 import type {
   CreateIssueInput,
@@ -8,9 +8,18 @@ import type {
   UpdateMilestoneInput,
 } from "../core/providers/project-provider.interface";
 
+/** One workspace folder's repository, offered in the multi-root picker. */
+export interface RepositoryOptionView {
+  readonly id: string;
+  readonly label: string;
+  readonly provider: ProviderKind;
+  readonly repository: string;
+}
+
 /** Messages the webview sends to the extension host. */
 export type InboundMessage =
   | { readonly type: "requestState"; readonly forceRefresh?: boolean }
+  | { readonly type: "selectRepository"; readonly id: string }
   | { readonly type: "updateIssue"; readonly id: string; readonly patch: UpdateIssueInput }
   | { readonly type: "createIssue"; readonly input: CreateIssueInput }
   | { readonly type: "updateMilestone"; readonly id: string; readonly patch: UpdateMilestoneInput }
@@ -24,4 +33,5 @@ export type OutboundMessage =
       readonly milestones: readonly IMilestone[];
       readonly capabilities: ProviderCapabilities;
     }
+  | { readonly type: "repositoryOptions"; readonly options: readonly RepositoryOptionView[] }
   | { readonly type: "error"; readonly message: string };

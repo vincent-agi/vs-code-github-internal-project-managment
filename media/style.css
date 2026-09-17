@@ -29,6 +29,26 @@ body {
   margin-left: auto;
 }
 
+.repository-picker {
+  padding: 16px;
+}
+
+.repository-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, transparent);
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.repository-option:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
 .error-banner {
   background-color: var(--vscode-inputValidation-errorBackground);
   border: 1px solid var(--vscode-inputValidation-errorBorder);

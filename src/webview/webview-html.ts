@@ -31,6 +31,11 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
 
   <div id="error-banner" class="error-banner" hidden></div>
 
+  <div id="repository-picker" class="repository-picker" hidden>
+    <p>Multiple repositories were found in this workspace. Pick one:</p>
+    <div id="repository-options"></div>
+  </div>
+
   <div id="view-issues" class="view">
     <div class="list" id="issue-list"></div>
     <div class="detail" id="issue-detail"></div>

@@ -1,7 +1,26 @@
-// This file compiles as a separate DOM-target bundle from the extension
-// host code, so it cannot import from ../webview/messages (a Node-target
-// file graph). The message shapes below are a wire-protocol mirror of
-// src/webview/messages.ts, kept in sync manually.
+// This file compiles with module:"none" into a single plain <script> —
+// no bundler, no ES module graph — so it cannot use real `import`
+// statements. The message shapes and the hasStateChanged logic below are
+// therefore manually mirrored from src/webview/messages.ts and
+// src/webview-ui/state-diff.ts (which stays the unit-tested source of
+// truth for the diff algorithm); keep them in sync by hand.
+
+function hasStateChanged<T>(previous: T | null, next: T): boolean {
+  if (previous === null) {
+    return true;
+  }
+  if (previous === next) {
+    return false;
+  }
+  return JSON.stringify(previous) !== JSON.stringify(next);
+}
+
+interface RepositoryOptionView {
+  id: string;
+  label: string;
+  provider: "github" | "gitlab";
+  repository: string;
+}
 
 interface IssueView {
   id: string;
@@ -32,12 +51,20 @@ interface Capabilities {
   canWriteMilestones: boolean;
 }
 
+interface StateSnapshot {
+  issues: IssueView[];
+  milestones: MilestoneView[];
+  capabilities: Capabilities;
+}
+
 type OutboundMessage =
   | { type: "state"; issues: IssueView[]; milestones: MilestoneView[]; capabilities: Capabilities }
+  | { type: "repositoryOptions"; options: RepositoryOptionView[] }
   | { type: "error"; message: string };
 
 type InboundMessage =
   | { type: "requestState"; forceRefresh?: boolean }
+  | { type: "selectRepository"; id: string }
   | { type: "updateIssue"; id: string; patch: Partial<Pick<IssueView, "title" | "body" | "state">> }
   | { type: "updateMilestone"; id: string; patch: Partial<Pick<MilestoneView, "title" | "description" | "state">> };
 
@@ -57,6 +84,7 @@ let currentCapabilities: Capabilities = {
 };
 let selectedIssueId: string | null = null;
 let selectedMilestoneId: string | null = null;
+let lastState: StateSnapshot | null = null;
 
 function post(message: InboundMessage): void {
   vscodeApi.postMessage(message);
@@ -198,6 +226,25 @@ function escapeAttr(value: string): string {
   return escapeHtml(value).replace(/"/g, "&quot;");
 }
 
+function renderRepositoryPicker(options: RepositoryOptionView[]): void {
+  byId<HTMLDivElement>("repository-picker").hidden = false;
+  byId<HTMLDivElement>("view-issues").hidden = true;
+  byId<HTMLDivElement>("view-milestones").hidden = true;
+
+  const container = byId<HTMLDivElement>("repository-options");
+  container.innerHTML = "";
+  for (const option of options) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "repository-option";
+    button.textContent = option.label;
+    button.addEventListener("click", () => {
+      post({ type: "selectRepository", id: option.id });
+    });
+    container.appendChild(button);
+  }
+}
+
 function setActiveTab(tab: "issues" | "milestones"): void {
   byId<HTMLButtonElement>("tab-issues").classList.toggle("active", tab === "issues");
   byId<HTMLButtonElement>("tab-milestones").classList.toggle("active", tab === "milestones");
@@ -215,6 +262,19 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
   const message = event.data;
   if (message.type === "state") {
     clearError();
+    byId<HTMLDivElement>("repository-picker").hidden = true;
+    setActiveTab(byId<HTMLButtonElement>("tab-milestones").classList.contains("active") ? "milestones" : "issues");
+
+    const snapshot: StateSnapshot = {
+      issues: message.issues,
+      milestones: message.milestones,
+      capabilities: message.capabilities,
+    };
+    if (!hasStateChanged(lastState, snapshot)) {
+      return;
+    }
+    lastState = snapshot;
+
     currentIssues = message.issues;
     currentMilestones = message.milestones;
     currentCapabilities = message.capabilities;
@@ -222,6 +282,9 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
     renderIssueDetail();
     renderMilestoneList();
     renderMilestoneDetail();
+  } else if (message.type === "repositoryOptions") {
+    clearError();
+    renderRepositoryPicker(message.options);
   } else if (message.type === "error") {
     showError(message.message);
   }
