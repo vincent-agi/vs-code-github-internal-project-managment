@@ -37,6 +37,28 @@ async function promptForToken(provider: ProviderKind): Promise<string | undefine
 }
 
 /**
+ * Gets a GitHub access token via VS Code's built-in GitHub authentication
+ * provider. This never touches our SecretStorage: the session is owned
+ * and persisted by VS Code itself. See ADR-0003.
+ */
+async function getGithubToken(): Promise<string> {
+  const session = await vscode.authentication.getSession("github", ["repo"], {
+    createIfNone: true,
+  });
+  return session.accessToken;
+}
+
+async function resolveToken(
+  providerKind: ProviderKind,
+  credentialStore: ICredentialStore,
+): Promise<string> {
+  if (providerKind === "github") {
+    return getGithubToken();
+  }
+  return ensureToken(credentialStore, providerKind, promptForToken);
+}
+
+/**
  * Builds the provider for the configured platform. Octokit's and
  * gitbeaker's real client types are wider than the narrow ports the
  * providers depend on (see ADR-0001); the casts here are the single
@@ -67,7 +89,7 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
   const credentialStore = makeCredentialStore(context.secrets);
   let token: string;
   try {
-    token = await ensureToken(credentialStore, providerKind, promptForToken);
+    token = await resolveToken(providerKind, credentialStore);
   } catch (error) {
     void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
     return;
