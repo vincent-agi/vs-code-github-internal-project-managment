@@ -4,6 +4,7 @@
   "description": "View and manage GitHub and GitLab Issues and Milestones from a central panel in VS Code.",
   "version": "0.0.1",
   "publisher": "local-dev",
+  "icon": "media/plugin-icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/vincent-agi/vs-code-github-internal-project-managment.git"
