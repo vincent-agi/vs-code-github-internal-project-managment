@@ -147,23 +147,80 @@ describe("PanelController.handleMessage 'updateMilestone'", () => {
 });
 
 describe("PanelController issue transition hook", () => {
+  it("does not notify on the very first state fetch (no baseline to diff against)", async () => {
+    const provider = makeProvider(fullAccess);
+    const postMessage = vi.fn();
+    const onIssueTransition = vi.fn();
+    const controller = new PanelController(provider, postMessage, onIssueTransition);
+
+    await controller.handleMessage({ type: "requestState" });
+
+    expect(onIssueTransition).not.toHaveBeenCalled();
+  });
+
   it("notifies onIssueTransition when an update closes the issue", async () => {
     const provider = makeProvider(fullAccess);
     const postMessage = vi.fn();
     const onIssueTransition = vi.fn();
     const controller = new PanelController(provider, postMessage, onIssueTransition);
 
+    // Establishes the baseline snapshot (open, no labels).
+    await controller.handleMessage({ type: "requestState" });
+
+    (provider.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValue({ ...issue, state: "closed" });
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([{ ...issue, state: "closed" }]);
+
     await controller.handleMessage({ type: "updateIssue", id: issue.id, patch: { state: "closed" } });
 
     expect(onIssueTransition).toHaveBeenCalledWith(expect.objectContaining({ state: "closed" }), "closed");
   });
 
-  it("does not notify when the transition is 'none'", async () => {
+  it("detects a label added externally between two state fetches (e.g. via manual Refresh)", async () => {
     const provider = makeProvider(fullAccess);
-    (provider.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValue({ ...issue, title: "Renamed" });
     const postMessage = vi.fn();
     const onIssueTransition = vi.fn();
     const controller = new PanelController(provider, postMessage, onIssueTransition);
+
+    // Baseline: no labels.
+    await controller.handleMessage({ type: "requestState" });
+
+    // Someone added the "in-progress" label directly on GitHub/GitLab;
+    // the user then clicks Refresh in the panel.
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { ...issue, labels: ["in-progress"] },
+    ]);
+
+    await controller.handleMessage({ type: "requestState", forceRefresh: true });
+
+    expect(onIssueTransition).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: ["in-progress"] }),
+      "started-in-progress",
+    );
+  });
+
+  it("does not notify when nothing changed between two fetches", async () => {
+    const provider = makeProvider(fullAccess);
+    const postMessage = vi.fn();
+    const onIssueTransition = vi.fn();
+    const controller = new PanelController(provider, postMessage, onIssueTransition);
+
+    await controller.handleMessage({ type: "requestState" });
+    onIssueTransition.mockClear();
+    await controller.handleMessage({ type: "requestState" });
+
+    expect(onIssueTransition).not.toHaveBeenCalled();
+  });
+
+  it("does not notify when the transition is 'none' (e.g. a title-only edit)", async () => {
+    const provider = makeProvider(fullAccess);
+    const postMessage = vi.fn();
+    const onIssueTransition = vi.fn();
+    const controller = new PanelController(provider, postMessage, onIssueTransition);
+
+    await controller.handleMessage({ type: "requestState" });
+
+    (provider.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValue({ ...issue, title: "Renamed" });
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([{ ...issue, title: "Renamed" }]);
 
     await controller.handleMessage({ type: "updateIssue", id: issue.id, patch: { title: "Renamed" } });
 

@@ -1,6 +1,6 @@
 import { detectIssueTransition, type IssueTransition } from "../core/automation/issue-transition";
 import type { IIssue } from "../core/models/issue.model";
-import type { FetchOptions, IProjectProvider, UpdateIssueInput } from "../core/providers/project-provider.interface";
+import type { FetchOptions, IProjectProvider } from "../core/providers/project-provider.interface";
 import { assertCanWrite } from "../core/providers/project-provider.interface";
 import type { InboundMessage, OutboundMessage } from "./messages";
 
@@ -14,12 +14,22 @@ export type IssueTransitionHandler = (issue: IIssue, transition: IssueTransition
  * `postMessage` is the only side-effecting dependency, so this can be
  * unit tested without a real VS Code webview.
  *
- * `onIssueTransition` is Phase 4's automation hook: it fires on
- * recognized lifecycle changes (e.g. an issue closing, or picking up the
- * "in-progress" label) so future automation, like auto-creating a branch,
- * can subscribe without this class knowing about branches or git.
+ * `onIssueTransition` is the automation hook: it fires on recognized
+ * lifecycle changes (e.g. an issue closing, or picking up the
+ * "in-progress" label) so automation like auto-creating a branch can
+ * subscribe without this class knowing about branches or git.
+ *
+ * Transitions are detected by diffing each freshly fetched issue against
+ * the *last state snapshot this controller sent*, not an immediate
+ * before/after pair around a single edit. This matters: the panel's edit
+ * form has no labels field, so the "in-progress" label is always added
+ * externally (directly on GitHub/GitLab). Diffing against the last
+ * snapshot means it fires on the next fetch — a manual Refresh, or the
+ * `sendState()` after any other edit — instead of never firing at all.
  */
 export class PanelController {
+  private lastIssuesById: Map<string, IIssue> | null = null;
+
   constructor(
     private readonly provider: IProjectProvider,
     private readonly postMessage: (message: OutboundMessage) => void,
@@ -39,7 +49,7 @@ export class PanelController {
           return;
         case "updateIssue":
           await this.guardWrite("canWriteIssues");
-          await this.updateIssueAndNotify(message.id, message.patch);
+          await this.provider.updateIssue(message.id, message.patch);
           await this.sendState();
           return;
         case "createMilestone":
@@ -58,23 +68,29 @@ export class PanelController {
     }
   }
 
-  private async updateIssueAndNotify(id: string, patch: UpdateIssueInput): Promise<void> {
-    if (!this.onIssueTransition) {
-      await this.provider.updateIssue(id, patch);
-      return;
-    }
-
-    const before = await this.provider.getIssue(id);
-    const after = await this.provider.updateIssue(id, patch);
-    const transition = detectIssueTransition(before, after);
-    if (transition !== "none") {
-      this.onIssueTransition(after, transition);
-    }
-  }
-
   private async guardWrite(permission: "canWriteIssues" | "canWriteMilestones"): Promise<void> {
     const capabilities = await this.provider.getCapabilities();
     assertCanWrite(capabilities, permission);
+  }
+
+  private detectAndNotifyTransitions(issues: readonly IIssue[]): void {
+    const previousById = this.lastIssuesById;
+    this.lastIssuesById = new Map(issues.map((issue) => [issue.id, issue]));
+
+    if (!previousById || !this.onIssueTransition) {
+      return;
+    }
+
+    for (const issue of issues) {
+      const previous = previousById.get(issue.id);
+      if (!previous) {
+        continue;
+      }
+      const transition = detectIssueTransition(previous, issue);
+      if (transition !== "none") {
+        this.onIssueTransition(issue, transition);
+      }
+    }
   }
 
   private async sendState(options?: FetchOptions): Promise<void> {
@@ -83,6 +99,7 @@ export class PanelController {
       this.provider.listIssues(options),
       this.provider.listMilestones(options),
     ]);
+    this.detectAndNotifyTransitions(issues);
     this.postMessage({ type: "state", issues, milestones, capabilities });
   }
 }

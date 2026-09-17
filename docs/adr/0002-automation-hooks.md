@@ -37,9 +37,25 @@ trigger.
 ### The hook lives on PanelController, not on the provider
 
 `PanelController` (the already-tested UI state manager from Phase 3)
-gains an optional `onIssueTransition` callback. On `updateIssue`, it
-fetches the pre-update issue, diffs it against the result, and invokes
-the callback when the transition is not `"none"`.
+gains an optional `onIssueTransition` callback, invoked whenever a
+recognized transition is detected on any issue in a freshly fetched
+`state`.
+
+**Detection is a diff against the last snapshot this controller sent —
+not an immediate before/after pair around a single edit.** The initial
+version of this hook fetched the pre-update issue and diffed it against
+the post-update result inside the `updateIssue` handler. That could not
+actually detect the "in-progress" label in practice: the panel's edit
+form has no labels field, so the label is always added externally
+(directly on GitHub/GitLab), and both the "before" and "after" fetches
+in that flow happen back-to-back at Save time — long after the label was
+already added, so neither side ever differs. Diffing against the last
+*sent* snapshot instead means the transition is caught on whatever
+`sendState()` call happens next — a manual Refresh, or the state refresh
+after any other edit. `PanelController` keeps a `Map<string, IIssue>` of
+the last snapshot for exactly this purpose. The first-ever `sendState()`
+call establishes the baseline without firing any transitions (there is
+nothing to diff against yet).
 
 Alternatives considered:
 
@@ -64,12 +80,16 @@ automation will look familiar to developers already using those tools.
 
 ## Consequences
 
-- `extension.ts` currently only shows an information message suggesting
-  the branch name on `"started-in-progress"` — it does not create the
-  branch or checkout automatically. Wiring that up (e.g. via the
-  `simple-git` package or VS Code's Git extension API) is left for a
-  later phase, once the "in progress" convention is validated with
-  real usage.
+- At the time this ADR was written, `extension.ts` only showed an
+  information message suggesting the branch name on
+  `"started-in-progress"` — it did not create the branch automatically.
+  That automation was completed in ADR-0004.
 - Teams that use a different label than `in-progress` will not trigger
-  the hook; this is hardcoded for now rather than made configurable,
-  since Phase 4 is explicitly preparatory.
+  the hook; this is hardcoded rather than made configurable. Revisit if
+  teams need a different label vocabulary.
+- Because detection diffs against the last snapshot this controller
+  sent, a transition is only observed on the *next* fetch after the
+  underlying change — there can be a short delay between an external
+  label change and the extension noticing it, bounded by how often the
+  panel refetches (see `remoteProjectManager.cacheTtlSeconds` and the
+  manual Refresh button, ADR-0003).
