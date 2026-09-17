@@ -4,6 +4,10 @@
   "description": "View and manage GitHub and GitLab Issues and Milestones from a central panel in VS Code.",
   "version": "0.0.1",
   "publisher": "local-dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vincent-agi/vs-code-github-internal-project-managment.git"
+  },
   "engines": {
     "vscode": "^1.85.0",
     "node": ">=18"
@@ -61,11 +65,13 @@
     "watch": "tsc -w -p .",
     "watch:webview": "tsc -w -p tsconfig.webview.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "package": "npm run compile && vsce package"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^4.0.0",
     "typescript": "^5.4.0",
     "vitest": "^1.4.0"
   },
