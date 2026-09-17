@@ -34,7 +34,7 @@ function makeProvider(capabilities: ProviderCapabilities): IProjectProvider {
   return {
     getCapabilities: vi.fn().mockResolvedValue(capabilities),
     listIssues: vi.fn().mockResolvedValue([issue]),
-    getIssue: vi.fn(),
+    getIssue: vi.fn().mockResolvedValue(issue),
     createIssue: vi.fn().mockResolvedValue(issue),
     updateIssue: vi.fn().mockResolvedValue({ ...issue, state: "closed" }),
     listMilestones: vi.fn().mockResolvedValue([milestone]),
@@ -128,6 +128,31 @@ describe("PanelController.handleMessage 'updateMilestone'", () => {
       type: "error",
       message: expect.stringMatching(/canWriteMilestones/),
     });
+  });
+});
+
+describe("PanelController issue transition hook", () => {
+  it("notifies onIssueTransition when an update closes the issue", async () => {
+    const provider = makeProvider(fullAccess);
+    const postMessage = vi.fn();
+    const onIssueTransition = vi.fn();
+    const controller = new PanelController(provider, postMessage, onIssueTransition);
+
+    await controller.handleMessage({ type: "updateIssue", id: issue.id, patch: { state: "closed" } });
+
+    expect(onIssueTransition).toHaveBeenCalledWith(expect.objectContaining({ state: "closed" }), "closed");
+  });
+
+  it("does not notify when the transition is 'none'", async () => {
+    const provider = makeProvider(fullAccess);
+    (provider.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValue({ ...issue, title: "Renamed" });
+    const postMessage = vi.fn();
+    const onIssueTransition = vi.fn();
+    const controller = new PanelController(provider, postMessage, onIssueTransition);
+
+    await controller.handleMessage({ type: "updateIssue", id: issue.id, patch: { title: "Renamed" } });
+
+    expect(onIssueTransition).not.toHaveBeenCalled();
   });
 });
 

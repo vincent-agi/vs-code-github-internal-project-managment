@@ -6,6 +6,7 @@ import type { ProviderKind } from "./core/models/issue.model";
 import type { IProjectProvider } from "./core/providers/project-provider.interface";
 import { GithubProvider, type GithubClient } from "./providers/github/github.provider";
 import { GitlabProvider, type GitlabClient } from "./providers/gitlab/gitlab.provider";
+import { generateBranchName } from "./core/automation/branch-name";
 import { PanelController } from "./webview/panel-controller";
 import type { InboundMessage } from "./webview/messages";
 import { getWebviewHtml } from "./webview/webview-html";
@@ -89,9 +90,19 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
 
   panel.webview.html = getWebviewHtml(panel.webview, context.extensionUri);
 
-  const controller = new PanelController(provider, (message) => {
-    void panel.webview.postMessage(message);
-  });
+  const controller = new PanelController(
+    provider,
+    (message) => {
+      void panel.webview.postMessage(message);
+    },
+    (issue, transition) => {
+      if (transition === "started-in-progress") {
+        void vscode.window.showInformationMessage(
+          `Issue #${issue.number} moved to in-progress. Suggested branch: ${generateBranchName(issue)}`,
+        );
+      }
+    },
+  );
 
   panel.webview.onDidReceiveMessage((message: InboundMessage) => {
     void controller.handleMessage(message);
