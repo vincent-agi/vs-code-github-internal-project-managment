@@ -1,0 +1,147 @@
+import type { IIssue } from "../../core/models/issue.model";
+import type { IMilestone } from "../../core/models/milestone.model";
+import type {
+  CreateIssueInput,
+  CreateMilestoneInput,
+  IProjectProvider,
+  ProviderCapabilities,
+  UpdateIssueInput,
+  UpdateMilestoneInput,
+} from "../../core/providers/project-provider.interface";
+import {
+  mapDomainIssueStateToGitlab,
+  mapGitlabIssueToDomain,
+  mapGitlabMilestoneToDomain,
+  type RawGitlabIssue,
+  type RawGitlabMilestone,
+} from "./gitlab.mappers";
+
+const DEVELOPER_ACCESS_LEVEL = 30;
+
+/**
+ * Minimal slice of the gitbeaker REST client this provider depends on.
+ * Kept narrow so tests can supply a plain fake instead of a real
+ * gitbeaker client instance.
+ */
+export interface GitlabClient {
+  Issues: {
+    all(params: { projectId: string; scope: "all" }): Promise<readonly RawGitlabIssue[]>;
+    show(projectId: string, issueIid: number): Promise<RawGitlabIssue>;
+    create(projectId: string, options: Record<string, unknown>): Promise<RawGitlabIssue>;
+    edit(projectId: string, issueIid: number, options: Record<string, unknown>): Promise<RawGitlabIssue>;
+  };
+  ProjectMilestones: {
+    all(projectId: string): Promise<readonly RawGitlabMilestone[]>;
+    show(projectId: string, milestoneId: number): Promise<RawGitlabMilestone>;
+    create(projectId: string, options: Record<string, unknown>): Promise<RawGitlabMilestone>;
+    edit(projectId: string, milestoneId: number, options: Record<string, unknown>): Promise<RawGitlabMilestone>;
+  };
+  Projects: {
+    show(projectId: string): Promise<{
+      permissions?: {
+        project_access?: { access_level: number } | null;
+        group_access?: { access_level: number } | null;
+      };
+    }>;
+  };
+}
+
+/**
+ * GitLab connector implementing {@link IProjectProvider} on top of
+ * gitbeaker. Issues are addressed by the composite id
+ * `"namespace/project#iid"`, matching GitLab's issue endpoints which key
+ * on the project-scoped `iid`. Milestones are addressed by GitLab's
+ * internal `id` directly, since GitLab's milestone endpoints key on that
+ * id rather than the milestone's `iid`.
+ */
+export class GitlabProvider implements IProjectProvider {
+  constructor(
+    private readonly client: GitlabClient,
+    private readonly projectPath: string,
+  ) {}
+
+  private parseIssueIid(id: string): number {
+    const match = id.match(/#(\d+)$/);
+    if (!match) {
+      throw new Error(`Not a valid GitLab issue id: '${id}'`);
+    }
+    return Number(match[1]);
+  }
+
+  async getCapabilities(): Promise<ProviderCapabilities> {
+    const project = await this.client.Projects.show(this.projectPath);
+    const accessLevel =
+      project.permissions?.project_access?.access_level ??
+      project.permissions?.group_access?.access_level ??
+      0;
+    const canWrite = accessLevel >= DEVELOPER_ACCESS_LEVEL;
+    return {
+      canReadIssues: true,
+      canWriteIssues: canWrite,
+      canReadMilestones: true,
+      canWriteMilestones: canWrite,
+    };
+  }
+
+  async listIssues(): Promise<readonly IIssue[]> {
+    const rawIssues = await this.client.Issues.all({ projectId: this.projectPath, scope: "all" });
+    return rawIssues.map((issue) => mapGitlabIssueToDomain(issue, this.projectPath));
+  }
+
+  async getIssue(id: string): Promise<IIssue> {
+    const raw = await this.client.Issues.show(this.projectPath, this.parseIssueIid(id));
+    return mapGitlabIssueToDomain(raw, this.projectPath);
+  }
+
+  async createIssue(input: CreateIssueInput): Promise<IIssue> {
+    const raw = await this.client.Issues.create(this.projectPath, {
+      title: input.title,
+      description: input.body,
+      labels: input.labels,
+      assignee_usernames: input.assignees,
+      milestone_id: input.milestoneId ?? undefined,
+    });
+    return mapGitlabIssueToDomain(raw, this.projectPath);
+  }
+
+  async updateIssue(id: string, patch: UpdateIssueInput): Promise<IIssue> {
+    const raw = await this.client.Issues.edit(this.projectPath, this.parseIssueIid(id), {
+      title: patch.title,
+      description: patch.body,
+      labels: patch.labels,
+      assignee_usernames: patch.assignees,
+      milestone_id: patch.milestoneId === undefined ? undefined : patch.milestoneId,
+      state_event: patch.state ? (mapDomainIssueStateToGitlab(patch.state) === "closed" ? "close" : "reopen") : undefined,
+    });
+    return mapGitlabIssueToDomain(raw, this.projectPath);
+  }
+
+  async listMilestones(): Promise<readonly IMilestone[]> {
+    const rawMilestones = await this.client.ProjectMilestones.all(this.projectPath);
+    return rawMilestones.map(mapGitlabMilestoneToDomain);
+  }
+
+  async getMilestone(id: string): Promise<IMilestone> {
+    const raw = await this.client.ProjectMilestones.show(this.projectPath, Number(id));
+    return mapGitlabMilestoneToDomain(raw);
+  }
+
+  async createMilestone(input: CreateMilestoneInput): Promise<IMilestone> {
+    const raw = await this.client.ProjectMilestones.create(this.projectPath, {
+      title: input.title,
+      description: input.description,
+      due_date: input.dueOn ?? undefined,
+    });
+    return mapGitlabMilestoneToDomain(raw);
+  }
+
+  async updateMilestone(id: string, patch: UpdateMilestoneInput): Promise<IMilestone> {
+    const raw = await this.client.ProjectMilestones.edit(this.projectPath, Number(id), {
+      title: patch.title,
+      description: patch.description,
+      due_date: patch.dueOn ?? undefined,
+      state_event: patch.state ? (patch.state === "closed" ? "close" : "activate") : undefined,
+    });
+    return mapGitlabMilestoneToDomain(raw);
+  }
+}
