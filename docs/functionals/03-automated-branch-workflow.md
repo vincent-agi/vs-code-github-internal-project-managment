@@ -99,6 +99,15 @@ Before ever touching git, the generated name is checked twice:
 
 If either check fails, you see an error naming the invalid branch and pointing at `remoteProjectManager.branchNamePattern` — no git command that could touch your working tree runs.
 
+## Manual Branch Creation from the Issue Detail Pane
+
+Besides the automatic trigger above, you can create a branch for any issue on demand: open the issue's detail pane and click **Create branch**.
+
+1. The extension runs `git fetch origin` under a progress notification ("Fetching branches from origin…"), then lists `origin`'s branches in a search-select quick pick titled **Base branch**. `main`/`master` (`main` winning if both exist) is placed first so it's focused by default; picking Escape/Cancel aborts with no git command run.
+2. Once you pick a base branch, the same [safety sequence](#the-safety-sequence) as the automatic workflow runs — name generation and validation, the dirty-working-tree prompt if needed, then `git checkout -b <branch> origin/<chosen base>` instead of the auto-resolved default.
+
+This is the way to base a new branch on something other than the repository's default (a release branch, another feature branch, etc.), and it works regardless of the `remoteProjectManager.autoBranchOnInProgress` setting.
+
 ## Turning It Off
 
 Set `remoteProjectManager.autoBranchOnInProgress` to `false` to disable automatic checkout. The extension still detects the "in-progress" transition on issues assigned to you and shows an information message with the branch name it would have used, so you can create it manually.

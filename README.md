@@ -34,7 +34,8 @@ flowchart LR
 - **Secure credential storage** — GitHub uses VS Code's built-in authentication provider (no token ever touches disk in our code); GitLab uses a Personal Access Token stored in VS Code's encrypted `SecretStorage`. See [Authentication and Security](docs/functionals/01-authentication-and-security.md).
 - **Multi-root workspace detection** — Automatically detects the repository from your workspace's git remotes, and offers a picker when more than one is found.
 - **Local caching** — Issue/milestone/capability reads are cached for a short, configurable time to avoid hitting API rate limits, with a manual "Refresh" button to bypass the cache.
-- **Automated Git workflow** — Auto-creates a sanitized, conventionally named branch when an issue assigned to you starts "in progress," with safe handling of uncommitted changes. See [Automated Branch Workflow](docs/functionals/03-automated-branch-workflow.md).
+- **Automated Git workflow** — Auto-creates a sanitized, conventionally named branch when an issue assigned to you starts "in progress," with safe handling of uncommitted changes. You can also trigger branch creation manually from an issue's detail pane, choosing the base branch yourself. See [Automated Branch Workflow](docs/functionals/03-automated-branch-workflow.md).
+- **Filter issues by milestone** — Jump from a milestone's detail pane straight to its issues, pre-filtered.
 
 ## Quick Start / Installation
 

@@ -75,6 +75,7 @@ The panel has two tabs at the top: **Issues** and **Milestones**.
 - **Browse**: click any item in the list on the left to see its details on the right.
 - **Edit**: change the title, state (Open/Closed), or body/description, then click **Save**. Your change is pushed to GitHub/GitLab immediately.
 - **Refresh**: click the **Refresh** button (top right) to pull the latest data right away, instead of waiting for the automatic refresh interval.
+- **Filter by milestone**: open a milestone's details and click **View issues** to jump to the Issues tab pre-filtered to that milestone. Click the **Issues** tab again to clear the filter.
 
 > If every field looks disabled (grayed out) and there's no Save button, your account only has read access to this repository — that's expected, not a bug.
 
@@ -99,6 +100,8 @@ Don't want this to happen automatically? Turn it off in settings:
 ```
 
 With it off, you still get a message suggesting the branch name — you just create it yourself.
+
+**Prefer to trigger it yourself?** Open any issue's detail pane and click **Create branch**. You'll be asked to pick a base branch from a search-select list (fetched fresh from `origin`, with `main`/`master` listed first), then the same safety sequence above runs.
 
 ## What's Next
 

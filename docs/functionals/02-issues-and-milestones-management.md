@@ -36,7 +36,12 @@ The panel has two tabs, **Issues** and **Milestones**, each with a list on the l
 
 - Click any item in the list to load its details.
 - Closed items are shown with strikethrough text in the list.
+- An issue's labels are shown as badges in its detail pane. The edit form does not expose a labels field (see [Moving an Issue to "In Progress"](#moving-an-issue-to-in-progress) for how to add one).
 - A **Refresh** button in the toolbar forces an immediate refetch from the remote, bypassing the local cache (see [Troubleshooting](04-troubleshooting-and-faq.md#rate-limiting-and-caching) for how caching works).
+
+### Filtering Issues by Milestone
+
+A milestone's detail pane shows a **View issues** button next to its open/closed count. Clicking it switches to the Issues tab, filtered to only that milestone's issues. The filter is cleared by clicking the **Issues** tab again.
 
 ## Editing
 
@@ -57,6 +62,8 @@ For a milestone, you can edit:
 | Description | Free text. |
 
 Click **Save** to push the change to GitHub/GitLab. On success, the panel refetches and shows the updated list and detail immediately.
+
+An issue's detail pane also has a **Create branch** button, letting you trigger the branch-creation workflow manually and pick the base branch yourself — see [Manual Branch Creation](03-automated-branch-workflow.md#manual-branch-creation-from-the-issue-detail-pane).
 
 ### Read-Only Mode
 
