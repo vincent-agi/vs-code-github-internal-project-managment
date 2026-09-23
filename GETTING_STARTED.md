@@ -103,6 +103,8 @@ With it off, you still get a message suggesting the branch name — you just cre
 
 **Prefer to trigger it yourself?** Open any issue's detail pane and click **Create branch**. You'll be asked to pick a base branch from a search-select list (fetched fresh from `origin`, with `main`/`master` listed first), then the same safety sequence above runs.
 
+Want a different branch name shape (e.g. no type prefix, or a custom separator)? Set `remoteProjectManager.branchNamePattern` in settings — default is `${type}/${issue_id}-${slug}`. Full placeholder reference and examples: [Branch Name Pattern](docs/functionals/03-automated-branch-workflow.md#branch-name-pattern).
+
 ## What's Next
 
 - Something not working? Check [Troubleshooting and FAQ](docs/functionals/04-troubleshooting-and-faq.md).
