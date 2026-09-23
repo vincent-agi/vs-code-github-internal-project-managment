@@ -346,6 +346,7 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
     panel.webview.onDidReceiveMessage((message: InboundMessage) => {
       void controller.handleMessage(message);
     });
+    void controller.handleMessage({ type: "requestState" });
     return;
   }
 
