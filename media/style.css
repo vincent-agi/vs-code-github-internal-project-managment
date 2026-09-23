@@ -157,6 +157,21 @@ body {
   color: var(--vscode-textLink-foreground);
 }
 
+.assign-to-me {
+  margin-left: 8px;
+  padding: 1px 8px;
+  font-size: 0.85em;
+  border-radius: 10px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  cursor: pointer;
+}
+
+.assign-to-me:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
 .detail label {
   display: block;
   margin-top: 12px;

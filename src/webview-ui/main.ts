@@ -57,21 +57,32 @@ interface Capabilities {
   canWriteMilestones: boolean;
 }
 
+interface AuthenticatedUser {
+  username: string;
+}
+
 interface StateSnapshot {
   issues: IssueView[];
   milestones: MilestoneView[];
   capabilities: Capabilities;
+  currentUser: AuthenticatedUser;
 }
 
 type OutboundMessage =
-  | { type: "state"; issues: IssueView[]; milestones: MilestoneView[]; capabilities: Capabilities }
+  | {
+      type: "state";
+      issues: IssueView[];
+      milestones: MilestoneView[];
+      capabilities: Capabilities;
+      currentUser: AuthenticatedUser;
+    }
   | { type: "repositoryOptions"; options: RepositoryOptionView[] }
   | { type: "error"; message: string };
 
 type InboundMessage =
   | { type: "requestState"; forceRefresh?: boolean }
   | { type: "selectRepository"; id: string }
-  | { type: "updateIssue"; id: string; patch: Partial<Pick<IssueView, "title" | "body" | "state">> }
+  | { type: "updateIssue"; id: string; patch: Partial<Pick<IssueView, "title" | "body" | "state" | "assignees">> }
   | { type: "updateMilestone"; id: string; patch: Partial<Pick<MilestoneView, "title" | "description" | "state">> };
 
 declare function acquireVsCodeApi(): {
@@ -88,6 +99,7 @@ let currentCapabilities: Capabilities = {
   canReadMilestones: false,
   canWriteMilestones: false,
 };
+let currentUser: AuthenticatedUser | null = null;
 let selectedIssueId: string | null = null;
 let selectedMilestoneId: string | null = null;
 let lastState: StateSnapshot | null = null;
@@ -167,13 +179,21 @@ function renderIssueDetail(): void {
 
   const canWrite = currentCapabilities.canWriteIssues;
   const milestone = findMilestone(issue.milestoneId);
+  const isAssignedToMe = currentUser !== null && issue.assignees.includes(currentUser.username);
+  const showAssignToMe = canWrite && currentUser !== null && !isAssignedToMe;
   detail.innerHTML = `
     <div class="meta">
       <div class="meta-row"><span class="meta-key">Number</span><span class="meta-value">#${issue.number}</span></div>
       <div class="meta-row"><span class="meta-key">Link</span><span class="meta-value"><a href="${escapeAttr(issue.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(issue.url)}</a></span></div>
       <div class="meta-row"><span class="meta-key">Milestone</span><span class="meta-value">${milestone ? escapeHtml(milestone.title) : "—"}</span></div>
       <div class="meta-row"><span class="meta-key">Labels</span><span class="meta-value">${issue.labels.length > 0 ? renderLabelBadges(issue.labels) : "—"}</span></div>
-      <div class="meta-row"><span class="meta-key">Assignees</span><span class="meta-value">${issue.assignees.length > 0 ? issue.assignees.map(escapeHtml).join(", ") : "—"}</span></div>
+      <div class="meta-row">
+        <span class="meta-key">Assignees</span>
+        <span class="meta-value">
+          ${issue.assignees.length > 0 ? issue.assignees.map(escapeHtml).join(", ") : "—"}
+          ${showAssignToMe ? '<button id="issue-assign-to-me" type="button" class="assign-to-me">Assign to me</button>' : ""}
+        </span>
+      </div>
       <div class="meta-row"><span class="meta-key">Comments</span><span class="meta-value">${issue.commentsCount}</span></div>
       <div class="meta-row"><span class="meta-key">Created</span><span class="meta-value">${formatDate(issue.createdAt)}</span></div>
       <div class="meta-row"><span class="meta-key">Updated</span><span class="meta-value">${formatDate(issue.updatedAt)}</span></div>
@@ -203,6 +223,13 @@ function renderIssueDetail(): void {
       const body = byId<HTMLTextAreaElement>("issue-body").value;
       post({ type: "updateIssue", id: issue.id, patch: { title, state, body } });
     });
+
+    if (showAssignToMe && currentUser !== null) {
+      const username = currentUser.username;
+      document.getElementById("issue-assign-to-me")?.addEventListener("click", () => {
+        post({ type: "updateIssue", id: issue.id, patch: { assignees: [...issue.assignees, username] } });
+      });
+    }
   }
 }
 
@@ -325,6 +352,7 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
       issues: message.issues,
       milestones: message.milestones,
       capabilities: message.capabilities,
+      currentUser: message.currentUser,
     };
     if (!hasStateChanged(lastState, snapshot)) {
       return;
@@ -334,6 +362,7 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
     currentIssues = message.issues;
     currentMilestones = message.milestones;
     currentCapabilities = message.capabilities;
+    currentUser = message.currentUser;
     renderIssueList();
     renderIssueDetail();
     renderMilestoneList();

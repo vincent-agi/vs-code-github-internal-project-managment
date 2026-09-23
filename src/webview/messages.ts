@@ -3,6 +3,7 @@ import type { IMilestone } from "../core/models/milestone.model";
 import type {
   CreateIssueInput,
   CreateMilestoneInput,
+  IAuthenticatedUser,
   ProviderCapabilities,
   UpdateIssueInput,
   UpdateMilestoneInput,
@@ -32,6 +33,7 @@ export type OutboundMessage =
       readonly issues: readonly IIssue[];
       readonly milestones: readonly IMilestone[];
       readonly capabilities: ProviderCapabilities;
+      readonly currentUser: IAuthenticatedUser;
     }
   | { readonly type: "repositoryOptions"; readonly options: readonly RepositoryOptionView[] }
   | { readonly type: "error"; readonly message: string };

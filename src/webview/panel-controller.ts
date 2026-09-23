@@ -94,12 +94,13 @@ export class PanelController {
   }
 
   private async sendState(options?: FetchOptions): Promise<void> {
-    const [capabilities, issues, milestones] = await Promise.all([
+    const [capabilities, issues, milestones, currentUser] = await Promise.all([
       this.provider.getCapabilities(options),
       this.provider.listIssues(options),
       this.provider.listMilestones(options),
+      this.provider.getCurrentUser(),
     ]);
     this.detectAndNotifyTransitions(issues);
-    this.postMessage({ type: "state", issues, milestones, capabilities });
+    this.postMessage({ type: "state", issues, milestones, capabilities, currentUser });
   }
 }

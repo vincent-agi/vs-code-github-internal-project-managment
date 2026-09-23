@@ -76,6 +76,7 @@ describe("PanelController.handleMessage 'requestState'", () => {
       issues: [issue],
       milestones: [milestone],
       capabilities: fullAccess,
+      currentUser: { username: "octocat" },
     });
   });
 });
