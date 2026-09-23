@@ -19,6 +19,7 @@ export class BranchManager implements IBranchManager {
     cwd: string,
     prompts: BranchCreationPrompts,
     pattern?: string,
+    baseBranch?: string,
   ): Promise<BranchCreationResult> {
     const branchName = generateBranchName(issue, pattern);
 
@@ -44,8 +45,8 @@ export class BranchManager implements IBranchManager {
 
     try {
       await this.git.fetch(cwd);
-      const baseBranch = await this.git.getDefaultBranch(cwd);
-      await this.git.checkoutNewBranch(cwd, branchName, baseBranch);
+      const base = baseBranch ?? (await this.git.getDefaultBranch(cwd));
+      await this.git.checkoutNewBranch(cwd, branchName, base);
       return { status: "created", branchName };
     } catch (error) {
       return { status: "error", message: error instanceof Error ? error.message : String(error) };

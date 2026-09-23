@@ -27,6 +27,9 @@ export interface IGitService {
   /** Resolves the repository's default branch (e.g. "main", "master"). */
   getDefaultBranch(cwd: string): Promise<string>;
 
+  /** Lists `remoteName`'s branches ("origin" by default), names only, without the remote prefix. */
+  listBranches(cwd: string, remoteName?: string): Promise<string[]>;
+
   /** Creates and checks out `branchName`, based on `baseBranch`. */
   checkoutNewBranch(cwd: string, branchName: string, baseBranch: string): Promise<void>;
 

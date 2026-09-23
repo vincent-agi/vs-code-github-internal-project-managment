@@ -8,6 +8,15 @@ import type { InboundMessage, OutboundMessage } from "./messages";
 export type IssueTransitionHandler = (issue: IIssue, transition: IssueTransition) => void;
 
 /**
+ * Called when the webview asks to create (and switch to) a branch for an
+ * issue. Resolves to a success message to toast, or `null` when the user
+ * cancelled (e.g. backed out of the base-branch picker or the dirty-tree
+ * prompt) and nothing should be shown. Throws to report a failure, which
+ * `handleMessage`'s catch turns into an `error` message.
+ */
+export type CreateBranchRequestHandler = (issue: IIssue) => Promise<string | null>;
+
+/**
  * Drives the central panel's state: fetches issues/milestones/capabilities
  * from an {@link IProjectProvider} and applies webview-initiated edits,
  * enforcing write permissions before any mutation. Framework-agnostic —
@@ -34,6 +43,7 @@ export class PanelController {
     private readonly provider: IProjectProvider,
     private readonly postMessage: (message: OutboundMessage) => void,
     private readonly onIssueTransition?: IssueTransitionHandler,
+    private readonly onCreateBranchRequest?: CreateBranchRequestHandler,
   ) {}
 
   async handleMessage(message: InboundMessage): Promise<void> {
@@ -66,6 +76,21 @@ export class PanelController {
           this.postMessage({ type: "actionSuccess", message: "Milestone updated." });
           await this.sendState();
           return;
+        case "createBranchForIssue": {
+          if (!this.onCreateBranchRequest) {
+            return;
+          }
+          const issue = this.lastIssuesById?.get(message.id);
+          if (!issue) {
+            this.postMessage({ type: "error", message: "Issue not found." });
+            return;
+          }
+          const successMessage = await this.onCreateBranchRequest(issue);
+          if (successMessage) {
+            this.postMessage({ type: "actionSuccess", message: successMessage });
+          }
+          return;
+        }
       }
     } catch (error) {
       this.postMessage({ type: "error", message: error instanceof Error ? error.message : String(error) });

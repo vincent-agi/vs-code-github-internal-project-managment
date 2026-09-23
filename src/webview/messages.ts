@@ -24,7 +24,8 @@ export type InboundMessage =
   | { readonly type: "updateIssue"; readonly id: string; readonly patch: UpdateIssueInput }
   | { readonly type: "createIssue"; readonly input: CreateIssueInput }
   | { readonly type: "updateMilestone"; readonly id: string; readonly patch: UpdateMilestoneInput }
-  | { readonly type: "createMilestone"; readonly input: CreateMilestoneInput };
+  | { readonly type: "createMilestone"; readonly input: CreateMilestoneInput }
+  | { readonly type: "createBranchForIssue"; readonly id: string };
 
 /** Messages the extension host sends to the webview. */
 export type OutboundMessage =

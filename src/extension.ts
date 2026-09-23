@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { Octokit } from "@octokit/rest";
 import { Gitlab } from "@gitbeaker/rest";
 import { ensureToken, type ICredentialStore } from "./core/auth/ensure-token";
-import type { ProviderKind } from "./core/models/issue.model";
+import type { IIssue, ProviderKind } from "./core/models/issue.model";
 import type { IProjectProvider } from "./core/providers/project-provider.interface";
 import { GithubProvider, type GithubClient } from "./providers/github/github.provider";
 import { GitlabProvider, type GitlabClient } from "./providers/gitlab/gitlab.provider";
@@ -13,6 +13,7 @@ import { generateBranchName } from "./core/automation/branch-name";
 import { shouldAutoCreateBranch } from "./core/automation/auto-branch-guard";
 import { BranchManager } from "./core/git/branch-manager";
 import type { DirtyTreeDecision } from "./core/git/branch-manager.interface";
+import { pickDefaultBaseBranch } from "./core/git/pick-default-base-branch";
 import { PanelController } from "./webview/panel-controller";
 import type { InboundMessage, RepositoryOptionView } from "./webview/messages";
 import { getWebviewHtml } from "./webview/webview-html";
@@ -202,6 +203,69 @@ function reportBranchCreationOutcome(
   }
 }
 
+/**
+ * Lets the user search-select which branch to base the new branch on, via
+ * a quick pick pre-filtered to `origin`'s branches. `main`/`master` (main
+ * winning when both exist) is placed first so it starts focused/selected.
+ * Returns `undefined` if the user backs out.
+ */
+async function pickBaseBranch(gitService: SimpleGitService, cwd: string): Promise<string | undefined> {
+  await gitService.fetch(cwd);
+  const branches = await gitService.listBranches(cwd);
+  if (branches.length === 0) {
+    throw new Error("No branches found on 'origin'.");
+  }
+
+  const defaultBranch = pickDefaultBaseBranch(branches);
+  const ordered = defaultBranch ? [defaultBranch, ...branches.filter((branch) => branch !== defaultBranch)] : branches;
+
+  return vscode.window.showQuickPick(ordered, {
+    title: "Base branch",
+    placeHolder: "Branch to create the new branch from",
+  });
+}
+
+/**
+ * Handles a manual "create branch" request from the issue detail panel:
+ * search-select the base branch, then create and switch via
+ * {@link BranchManager}. Returns a toast message on success, or `null`
+ * when the user cancelled at any step (base-branch picker or the
+ * dirty-tree prompt); throws on failure so `PanelController` reports it.
+ */
+async function requestCreateBranch(
+  issue: IIssue,
+  cwd: string,
+  gitService: SimpleGitService,
+  branchManager: BranchManager,
+  pattern: string | undefined,
+): Promise<string | null> {
+  const baseBranch = await pickBaseBranch(gitService, cwd);
+  if (!baseBranch) {
+    return null;
+  }
+
+  const result = await branchManager.createBranchForIssue(
+    issue,
+    cwd,
+    { onDirtyWorkingTree: () => promptDirtyWorkingTree(issue.number) },
+    pattern,
+    baseBranch,
+  );
+
+  switch (result.status) {
+    case "created":
+      return `Switched to new branch '${result.branchName}'.`;
+    case "cancelled":
+      return null;
+    case "invalid-name":
+      throw new Error(
+        `Generated branch name '${result.branchName}' is not a valid git ref. Check 'remoteProjectManager.branchNamePattern'.`,
+      );
+    case "error":
+      throw new Error(`Could not create branch: ${result.message}`);
+  }
+}
+
 /** Builds a fully wired PanelController for a resolved provider/repository. */
 async function buildController(
   context: vscode.ExtensionContext,
@@ -219,7 +283,9 @@ async function buildController(
 
   const autoBranchEnabled = config.get<boolean>("autoBranchOnInProgress", true);
   const branchNamePattern = config.get<string>("branchNamePattern", "");
-  const branchManager = new BranchManager(new SimpleGitService());
+  const pattern = branchNamePattern || undefined;
+  const gitService = new SimpleGitService();
+  const branchManager = new BranchManager(gitService);
   const currentUser = await provider.getCurrentUser();
 
   return new PanelController(
@@ -232,8 +298,6 @@ async function buildController(
         return;
       }
 
-      const pattern = branchNamePattern || undefined;
-
       if (!autoBranchEnabled || !folderPath) {
         void vscode.window.showInformationMessage(
           `Issue #${issue.number} moved to in-progress. Suggested branch: ${generateBranchName(issue, pattern)}`,
@@ -244,6 +308,12 @@ async function buildController(
       void branchManager
         .createBranchForIssue(issue, folderPath, { onDirtyWorkingTree: () => promptDirtyWorkingTree(issue.number) }, pattern)
         .then(reportBranchCreationOutcome);
+    },
+    (issue) => {
+      if (!folderPath) {
+        throw new Error("No workspace folder resolved for this repository; cannot create a branch.");
+      }
+      return requestCreateBranch(issue, folderPath, gitService, branchManager, pattern);
     },
   );
 }

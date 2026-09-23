@@ -30,6 +30,7 @@ function makeGitService(overrides: Partial<IGitService> = {}): IGitService {
     fetch: vi.fn().mockResolvedValue(undefined),
     stash: vi.fn().mockResolvedValue(undefined),
     getDefaultBranch: vi.fn().mockResolvedValue("main"),
+    listBranches: vi.fn().mockResolvedValue(["main"]),
     checkoutNewBranch: vi.fn().mockResolvedValue(undefined),
     isValidBranchName: vi.fn().mockResolvedValue(true),
     ...overrides,
@@ -100,6 +101,25 @@ describe("BranchManager.createBranchForIssue on a dirty tree", () => {
 
     expect(git.stash).not.toHaveBeenCalled();
     expect(result.status).toBe("created");
+  });
+});
+
+describe("BranchManager.createBranchForIssue with an explicit base branch", () => {
+  it("uses the given base branch and skips resolving the default branch", async () => {
+    const git = makeGitService();
+    const manager = new BranchManager(git);
+
+    const result = await manager.createBranchForIssue(
+      makeIssue(),
+      CWD,
+      { onDirtyWorkingTree: vi.fn() },
+      undefined,
+      "develop",
+    );
+
+    expect(result).toEqual({ status: "created", branchName: "issue/42-bug-panel-does-not-open" });
+    expect(git.getDefaultBranch).not.toHaveBeenCalled();
+    expect(git.checkoutNewBranch).toHaveBeenCalledWith(CWD, "issue/42-bug-panel-does-not-open", "develop");
   });
 });
 

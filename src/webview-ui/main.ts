@@ -84,7 +84,8 @@ type InboundMessage =
   | { type: "requestState"; forceRefresh?: boolean }
   | { type: "selectRepository"; id: string }
   | { type: "updateIssue"; id: string; patch: Partial<Pick<IssueView, "title" | "body" | "state" | "assignees">> }
-  | { type: "updateMilestone"; id: string; patch: Partial<Pick<MilestoneView, "title" | "description" | "state">> };
+  | { type: "updateMilestone"; id: string; patch: Partial<Pick<MilestoneView, "title" | "description" | "state">> }
+  | { type: "createBranchForIssue"; id: string };
 
 declare function acquireVsCodeApi(): {
   postMessage(message: InboundMessage): void;
@@ -222,6 +223,7 @@ function renderIssueDetail(): void {
     <div class="meta">
       <div class="meta-row"><span class="meta-key">Number</span><span class="meta-value">#${issue.number}</span></div>
       <div class="meta-row"><span class="meta-key">Link</span><span class="meta-value"><a href="${escapeAttr(issue.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(issue.url)}</a></span></div>
+      <div class="meta-row"><span class="meta-key">Branch</span><span class="meta-value"><button id="issue-create-branch" type="button" class="assign-to-me">Create branch</button></span></div>
       <div class="meta-row"><span class="meta-key">Milestone</span><span class="meta-value">${milestone ? escapeHtml(milestone.title) : "—"}</span></div>
       <div class="meta-row"><span class="meta-key">Labels</span><span class="meta-value">${issue.labels.length > 0 ? renderLabelBadges(issue.labels) : "—"}</span></div>
       <div class="meta-row">
@@ -252,6 +254,10 @@ function renderIssueDetail(): void {
     <button id="issue-save" ${canWrite ? "" : "disabled"}>Save</button>
     ${canWrite ? "" : '<p class="read-only-note">Your account does not have write access to issues.</p>'}
   `;
+
+  byId<HTMLButtonElement>("issue-create-branch").addEventListener("click", () => {
+    post({ type: "createBranchForIssue", id: issue.id });
+  });
 
   if (canWrite) {
     byId<HTMLButtonElement>("issue-save").addEventListener("click", () => {

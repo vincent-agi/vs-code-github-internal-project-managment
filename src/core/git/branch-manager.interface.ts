@@ -19,7 +19,8 @@ export type BranchCreationResult =
 /**
  * Orchestrates safely creating and checking out a branch for an issue:
  * name generation + validation, dirty-tree handling, and basing the new
- * branch on an up-to-date default branch. See ADR-0004.
+ * branch on an up-to-date default branch, or an explicit `baseBranch`
+ * when the caller has already chosen one. See ADR-0004.
  */
 export interface IBranchManager {
   createBranchForIssue(
@@ -27,5 +28,6 @@ export interface IBranchManager {
     cwd: string,
     prompts: BranchCreationPrompts,
     pattern?: string,
+    baseBranch?: string,
   ): Promise<BranchCreationResult>;
 }

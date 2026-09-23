@@ -59,6 +59,17 @@ export class SimpleGitService implements IGitService {
     throw new Error("Could not determine the default branch (tried main, master, devel).");
   }
 
+  async listBranches(cwd: string, remoteName = "origin"): Promise<string[]> {
+    const raw = await simpleGit(cwd).raw(["branch", "-r", "--format=%(refname:short)"]);
+    const prefix = `${remoteName}/`;
+    const names = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith(prefix) && line !== `${prefix}HEAD`)
+      .map((line) => line.slice(prefix.length));
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
+  }
+
   async checkoutNewBranch(cwd: string, branchName: string, baseBranch: string): Promise<void> {
     await simpleGit(cwd).checkoutBranch(branchName, `origin/${baseBranch}`);
   }

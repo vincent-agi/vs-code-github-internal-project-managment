@@ -151,6 +151,65 @@ describe("PanelController.handleMessage 'updateMilestone'", () => {
   });
 });
 
+describe("PanelController.handleMessage 'createBranchForIssue'", () => {
+  it("looks up the issue and forwards it to onCreateBranchRequest, toasting the result", async () => {
+    const provider = makeProvider(fullAccess);
+    const postMessage = vi.fn();
+    const onCreateBranchRequest = vi.fn().mockResolvedValue("Switched to new branch 'issue/1-bug'.");
+    const controller = new PanelController(provider, postMessage, undefined, onCreateBranchRequest);
+
+    await controller.handleMessage({ type: "requestState" });
+    postMessage.mockClear();
+    await controller.handleMessage({ type: "createBranchForIssue", id: issue.id });
+
+    expect(onCreateBranchRequest).toHaveBeenCalledWith(issue);
+    expect(postMessage).toHaveBeenCalledWith({ type: "actionSuccess", message: "Switched to new branch 'issue/1-bug'." });
+  });
+
+  it("stays silent when onCreateBranchRequest resolves null (user cancelled)", async () => {
+    const provider = makeProvider(fullAccess);
+    const postMessage = vi.fn();
+    const onCreateBranchRequest = vi.fn().mockResolvedValue(null);
+    const controller = new PanelController(provider, postMessage, undefined, onCreateBranchRequest);
+
+    await controller.handleMessage({ type: "requestState" });
+    postMessage.mockClear();
+    await controller.handleMessage({ type: "createBranchForIssue", id: issue.id });
+
+    expect(postMessage).not.toHaveBeenCalled();
+  });
+
+  it("sends an error when the issue id is unknown", async () => {
+    const provider = makeProvider(fullAccess);
+    const postMessage = vi.fn();
+    const onCreateBranchRequest = vi.fn();
+    const controller = new PanelController(provider, postMessage, undefined, onCreateBranchRequest);
+
+    await controller.handleMessage({ type: "requestState" });
+    postMessage.mockClear();
+    await controller.handleMessage({ type: "createBranchForIssue", id: "unknown" });
+
+    expect(onCreateBranchRequest).not.toHaveBeenCalled();
+    expect(postMessage).toHaveBeenCalledWith({ type: "error", message: "Issue not found." });
+  });
+
+  it("reports an error when onCreateBranchRequest throws", async () => {
+    const provider = makeProvider(fullAccess);
+    const postMessage = vi.fn();
+    const onCreateBranchRequest = vi.fn().mockRejectedValue(new Error("No workspace folder resolved for this repository; cannot create a branch."));
+    const controller = new PanelController(provider, postMessage, undefined, onCreateBranchRequest);
+
+    await controller.handleMessage({ type: "requestState" });
+    postMessage.mockClear();
+    await controller.handleMessage({ type: "createBranchForIssue", id: issue.id });
+
+    expect(postMessage).toHaveBeenCalledWith({
+      type: "error",
+      message: "No workspace folder resolved for this repository; cannot create a branch.",
+    });
+  });
+});
+
 describe("PanelController issue transition hook", () => {
   it("does not notify on the very first state fetch (no baseline to diff against)", async () => {
     const provider = makeProvider(fullAccess);
