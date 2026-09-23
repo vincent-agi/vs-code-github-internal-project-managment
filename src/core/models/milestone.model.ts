@@ -29,4 +29,6 @@ export interface IMilestone {
   readonly dueOn: string | null;
   readonly url: string;
   readonly provider: ProviderKind;
+  readonly createdAt: string;
+  readonly updatedAt: string;
 }

@@ -46,6 +46,8 @@ const rawMilestone = {
   state: "open" as const,
   due_on: null,
   html_url: "https://github.com/acme/widgets/milestone/3",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
 };
 
 describe("GithubProvider.listIssues", () => {
@@ -126,6 +128,8 @@ describe("GithubProvider.listMilestones", () => {
         dueOn: null,
         url: "https://github.com/acme/widgets/milestone/3",
         provider: "github",
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
       },
     ]);
   });

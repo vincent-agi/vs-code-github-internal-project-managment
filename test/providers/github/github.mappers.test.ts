@@ -39,6 +39,8 @@ describe("mapGithubIssueToDomain", () => {
     html_url: "https://github.com/acme/widgets/issues/42",
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-02T00:00:00Z",
+    closed_at: null,
+    comments: 3,
   };
 
   it("maps all fields to the domain IIssue shape", () => {
@@ -57,6 +59,8 @@ describe("mapGithubIssueToDomain", () => {
       provider: "github",
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-02T00:00:00Z",
+      closedAt: null,
+      commentsCount: 3,
     });
   });
 
@@ -80,6 +84,8 @@ describe("mapGithubMilestoneToDomain", () => {
     state: "open" as const,
     due_on: "2026-06-01T00:00:00Z",
     html_url: "https://github.com/acme/widgets/milestone/3",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-02T00:00:00Z",
   };
 
   it("maps all fields to the domain IMilestone shape", () => {
@@ -94,6 +100,8 @@ describe("mapGithubMilestoneToDomain", () => {
       dueOn: "2026-06-01T00:00:00Z",
       url: "https://github.com/acme/widgets/milestone/3",
       provider: "github",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-02T00:00:00Z",
     });
   });
 

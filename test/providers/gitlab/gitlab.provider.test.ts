@@ -46,6 +46,8 @@ const rawMilestone = {
   state: "active" as const,
   due_date: null,
   web_url: "https://gitlab.com/acme/widgets/-/milestones/3",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
 };
 
 describe("GitlabProvider.listIssues", () => {
@@ -141,6 +143,8 @@ describe("GitlabProvider.listMilestones", () => {
         dueOn: null,
         url: "https://gitlab.com/acme/widgets/-/milestones/3",
         provider: "gitlab",
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
       },
     ]);
   });

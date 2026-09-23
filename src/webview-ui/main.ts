@@ -32,6 +32,10 @@ interface IssueView {
   assignees: readonly string[];
   milestoneId: string | null;
   url: string;
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+  commentsCount: number;
 }
 
 interface MilestoneView {
@@ -42,6 +46,8 @@ interface MilestoneView {
   state: "open" | "closed";
   dueOn: string | null;
   url: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Capabilities {
@@ -110,6 +116,30 @@ function clearError(): void {
   banner.textContent = "";
 }
 
+function formatDate(value: string | null): string {
+  if (!value) {
+    return "—";
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
+function findMilestone(milestoneId: string | null): MilestoneView | undefined {
+  if (!milestoneId) {
+    return undefined;
+  }
+  return currentMilestones.find((candidate) => candidate.id === milestoneId);
+}
+
+function renderLabelBadges(labels: readonly string[]): string {
+  if (labels.length === 0) {
+    return "";
+  }
+  return `<span class="badges">${labels
+    .map((label) => `<span class="badge">${escapeHtml(label)}</span>`)
+    .join("")}</span>`;
+}
+
 function renderIssueList(): void {
   const list = byId<HTMLDivElement>("issue-list");
   list.innerHTML = "";
@@ -117,7 +147,7 @@ function renderIssueList(): void {
     const item = document.createElement("div");
     item.className = "item" + (issue.id === selectedIssueId ? " selected" : "");
     const stateClass = issue.state === "closed" ? " state-closed" : "";
-    item.innerHTML = `<span class="number">#${issue.number}</span><span class="${stateClass}">${escapeHtml(issue.title)}</span>`;
+    item.innerHTML = `<span class="number">#${issue.number}</span><span class="${stateClass}">${escapeHtml(issue.title)}</span>${renderLabelBadges(issue.labels)}`;
     item.addEventListener("click", () => {
       selectedIssueId = issue.id;
       renderIssueList();
@@ -136,7 +166,20 @@ function renderIssueDetail(): void {
   }
 
   const canWrite = currentCapabilities.canWriteIssues;
+  const milestone = findMilestone(issue.milestoneId);
   detail.innerHTML = `
+    <div class="meta">
+      <div class="meta-row"><span class="meta-key">Number</span><span class="meta-value">#${issue.number}</span></div>
+      <div class="meta-row"><span class="meta-key">Link</span><span class="meta-value"><a href="${escapeAttr(issue.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(issue.url)}</a></span></div>
+      <div class="meta-row"><span class="meta-key">Milestone</span><span class="meta-value">${milestone ? escapeHtml(milestone.title) : "—"}</span></div>
+      <div class="meta-row"><span class="meta-key">Labels</span><span class="meta-value">${issue.labels.length > 0 ? renderLabelBadges(issue.labels) : "—"}</span></div>
+      <div class="meta-row"><span class="meta-key">Assignees</span><span class="meta-value">${issue.assignees.length > 0 ? issue.assignees.map(escapeHtml).join(", ") : "—"}</span></div>
+      <div class="meta-row"><span class="meta-key">Comments</span><span class="meta-value">${issue.commentsCount}</span></div>
+      <div class="meta-row"><span class="meta-key">Created</span><span class="meta-value">${formatDate(issue.createdAt)}</span></div>
+      <div class="meta-row"><span class="meta-key">Updated</span><span class="meta-value">${formatDate(issue.updatedAt)}</span></div>
+      <div class="meta-row"><span class="meta-key">Closed</span><span class="meta-value">${formatDate(issue.closedAt)}</span></div>
+    </div>
+
     <label for="issue-title">Title</label>
     <input id="issue-title" type="text" value="${escapeAttr(issue.title)}" ${canWrite ? "" : "disabled"} />
 
@@ -170,7 +213,8 @@ function renderMilestoneList(): void {
     const item = document.createElement("div");
     item.className = "item" + (milestone.id === selectedMilestoneId ? " selected" : "");
     const stateClass = milestone.state === "closed" ? " state-closed" : "";
-    item.innerHTML = `<span class="${stateClass}">${escapeHtml(milestone.title)}</span>`;
+    const due = milestone.dueOn ? `<span class="due">Due ${formatDate(milestone.dueOn)}</span>` : "";
+    item.innerHTML = `<span class="${stateClass}">${escapeHtml(milestone.title)}</span>${due}`;
     item.addEventListener("click", () => {
       selectedMilestoneId = milestone.id;
       renderMilestoneList();
@@ -189,7 +233,19 @@ function renderMilestoneDetail(): void {
   }
 
   const canWrite = currentCapabilities.canWriteMilestones;
+  const linkedIssues = currentIssues.filter((candidate) => candidate.milestoneId === milestone.id);
+  const openCount = linkedIssues.filter((candidate) => candidate.state === "open").length;
+  const closedCount = linkedIssues.length - openCount;
   detail.innerHTML = `
+    <div class="meta">
+      <div class="meta-row"><span class="meta-key">Number</span><span class="meta-value">#${milestone.number}</span></div>
+      <div class="meta-row"><span class="meta-key">Link</span><span class="meta-value"><a href="${escapeAttr(milestone.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(milestone.url)}</a></span></div>
+      <div class="meta-row"><span class="meta-key">Due</span><span class="meta-value">${formatDate(milestone.dueOn)}</span></div>
+      <div class="meta-row"><span class="meta-key">Issues</span><span class="meta-value">${openCount} open, ${closedCount} closed</span></div>
+      <div class="meta-row"><span class="meta-key">Created</span><span class="meta-value">${formatDate(milestone.createdAt)}</span></div>
+      <div class="meta-row"><span class="meta-key">Updated</span><span class="meta-value">${formatDate(milestone.updatedAt)}</span></div>
+    </div>
+
     <label for="milestone-title">Title</label>
     <input id="milestone-title" type="text" value="${escapeAttr(milestone.title)}" ${canWrite ? "" : "disabled"} />
 

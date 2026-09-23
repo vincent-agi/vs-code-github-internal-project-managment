@@ -38,6 +38,8 @@ describe("mapGitlabIssueToDomain", () => {
     web_url: "https://gitlab.com/acme/widgets/-/issues/42",
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-02T00:00:00Z",
+    closed_at: null,
+    user_notes_count: 3,
   };
 
   it("maps all fields to the domain IIssue shape", () => {
@@ -56,6 +58,8 @@ describe("mapGitlabIssueToDomain", () => {
       provider: "gitlab",
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-02T00:00:00Z",
+      closedAt: null,
+      commentsCount: 3,
     });
   });
 
@@ -79,6 +83,8 @@ describe("mapGitlabMilestoneToDomain", () => {
     state: "active" as const,
     due_date: "2026-06-01",
     web_url: "https://gitlab.com/acme/widgets/-/milestones/3",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-02T00:00:00Z",
   };
 
   it("maps all fields to the domain IMilestone shape", () => {
@@ -93,6 +99,8 @@ describe("mapGitlabMilestoneToDomain", () => {
       dueOn: "2026-06-01",
       url: "https://gitlab.com/acme/widgets/-/milestones/3",
       provider: "gitlab",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-02T00:00:00Z",
     });
   });
 

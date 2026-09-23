@@ -25,6 +25,8 @@ const issue: IIssue = {
   provider: "github",
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
+  closedAt: null,
+  commentsCount: 0,
 };
 
 const milestone: IMilestone = {
@@ -36,6 +38,8 @@ const milestone: IMilestone = {
   dueOn: null,
   url: "https://example.com/m1",
   provider: "github",
+  createdAt: "2026-01-01T00:00:00Z",
+  updatedAt: "2026-01-01T00:00:00Z",
 };
 
 const capabilities: ProviderCapabilities = {

@@ -19,6 +19,8 @@ export interface RawGitlabIssue {
   readonly web_url: string;
   readonly created_at: string;
   readonly updated_at: string;
+  readonly closed_at?: string | null;
+  readonly user_notes_count?: number;
 }
 
 /** Minimal shape of a GitLab API milestone, limited to fields we map. */
@@ -30,6 +32,8 @@ export interface RawGitlabMilestone {
   readonly state: GitlabMilestoneState;
   readonly due_date?: string | null;
   readonly web_url: string;
+  readonly created_at: string;
+  readonly updated_at: string;
 }
 
 /** Maps GitLab's issue state vocabulary to the domain state. */
@@ -72,6 +76,8 @@ export function mapGitlabIssueToDomain(raw: RawGitlabIssue, projectPath: string)
     provider: "gitlab",
     createdAt: raw.created_at,
     updatedAt: raw.updated_at,
+    closedAt: raw.closed_at ?? null,
+    commentsCount: raw.user_notes_count ?? 0,
   };
 }
 
@@ -90,5 +96,7 @@ export function mapGitlabMilestoneToDomain(raw: RawGitlabMilestone): IMilestone 
     dueOn: raw.due_date ?? null,
     url: raw.web_url,
     provider: "gitlab",
+    createdAt: raw.created_at,
+    updatedAt: raw.updated_at,
   };
 }

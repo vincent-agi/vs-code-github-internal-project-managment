@@ -13,6 +13,8 @@ export interface RawGithubIssue {
   readonly html_url: string;
   readonly created_at: string;
   readonly updated_at: string;
+  readonly closed_at?: string | null;
+  readonly comments?: number;
 }
 
 /** Minimal shape of a GitHub REST API milestone, limited to fields we map. */
@@ -24,6 +26,8 @@ export interface RawGithubMilestone {
   readonly state: "open" | "closed";
   readonly due_on?: string | null;
   readonly html_url: string;
+  readonly created_at: string;
+  readonly updated_at: string;
 }
 
 /** GitHub issue/milestone state already matches the domain state 1:1. */
@@ -60,6 +64,8 @@ export function mapGithubIssueToDomain(raw: RawGithubIssue, repoFullName: string
     provider: "github",
     createdAt: raw.created_at,
     updatedAt: raw.updated_at,
+    closedAt: raw.closed_at ?? null,
+    commentsCount: raw.comments ?? 0,
   };
 }
 
@@ -83,5 +89,7 @@ export function mapGithubMilestoneToDomain(raw: RawGithubMilestone): IMilestone 
     dueOn: raw.due_on ?? null,
     url: raw.html_url,
     provider: "github",
+    createdAt: raw.created_at,
+    updatedAt: raw.updated_at,
   };
 }

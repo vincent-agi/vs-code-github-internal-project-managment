@@ -36,4 +36,7 @@ export interface IIssue {
   readonly provider: ProviderKind;
   readonly createdAt: string;
   readonly updatedAt: string;
+  /** ISO 8601 close timestamp, or null if still open. */
+  readonly closedAt: string | null;
+  readonly commentsCount: number;
 }
