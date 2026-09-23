@@ -233,7 +233,7 @@ function renderIssueDetail(): void {
           ${showAssignToMe ? '<button id="issue-assign-to-me" type="button" class="assign-to-me">Assign to me</button>' : ""}
         </span>
       </div>
-      <div class="meta-row"><span class="meta-key">Comments</span><span class="meta-value">${issue.commentsCount}</span></div>
+      <div class="meta-row"><span class="meta-key">Comments</span><span class="meta-value"><a href="${escapeAttr(issue.url)}" target="_blank" rel="noopener noreferrer">${issue.commentsCount}</a></span></div>
       <div class="meta-row"><span class="meta-key">Created</span><span class="meta-value">${formatDate(issue.createdAt)}</span></div>
       <div class="meta-row"><span class="meta-key">Updated</span><span class="meta-value">${formatDate(issue.updatedAt)}</span></div>
       <div class="meta-row"><span class="meta-key">Closed</span><span class="meta-value">${formatDate(issue.closedAt)}</span></div>
