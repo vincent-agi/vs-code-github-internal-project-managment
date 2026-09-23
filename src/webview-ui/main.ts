@@ -103,6 +103,7 @@ let currentCapabilities: Capabilities = {
 let currentUser: AuthenticatedUser | null = null;
 let selectedIssueId: string | null = null;
 let selectedMilestoneId: string | null = null;
+let issueMilestoneFilter: string | null = null;
 let lastState: StateSnapshot | null = null;
 
 function post(message: InboundMessage): void {
@@ -172,9 +173,26 @@ function renderLabelBadges(labels: readonly string[]): string {
 }
 
 function renderIssueList(): void {
+  const filterBanner = byId<HTMLDivElement>("issue-filter-banner");
+  if (issueMilestoneFilter) {
+    const milestone = findMilestone(issueMilestoneFilter);
+    filterBanner.hidden = false;
+    filterBanner.innerHTML = `<span>Filtered by milestone: ${milestone ? escapeHtml(milestone.title) : "—"}</span><button id="issue-filter-clear" type="button" class="assign-to-me">Clear</button>`;
+    byId<HTMLButtonElement>("issue-filter-clear").addEventListener("click", () => {
+      issueMilestoneFilter = null;
+      renderIssueList();
+    });
+  } else {
+    filterBanner.hidden = true;
+    filterBanner.innerHTML = "";
+  }
+
   const list = byId<HTMLDivElement>("issue-list");
   list.innerHTML = "";
-  for (const issue of currentIssues) {
+  const issues = issueMilestoneFilter
+    ? currentIssues.filter((candidate) => candidate.milestoneId === issueMilestoneFilter)
+    : currentIssues;
+  for (const issue of issues) {
     const item = document.createElement("div");
     item.className = "item" + (issue.id === selectedIssueId ? " selected" : "");
     const stateClass = issue.state === "closed" ? " state-closed" : "";
@@ -287,7 +305,7 @@ function renderMilestoneDetail(): void {
       <div class="meta-row"><span class="meta-key">Number</span><span class="meta-value">#${milestone.number}</span></div>
       <div class="meta-row"><span class="meta-key">Link</span><span class="meta-value"><a href="${escapeAttr(milestone.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(milestone.url)}</a></span></div>
       <div class="meta-row"><span class="meta-key">Due</span><span class="meta-value">${formatDate(milestone.dueOn)}</span></div>
-      <div class="meta-row"><span class="meta-key">Issues</span><span class="meta-value">${openCount} open, ${closedCount} closed</span></div>
+      <div class="meta-row"><span class="meta-key">Issues</span><span class="meta-value">${openCount} open, ${closedCount} closed <button id="milestone-view-issues" type="button" class="assign-to-me">View issues</button></span></div>
       <div class="meta-row"><span class="meta-key">Created</span><span class="meta-value">${formatDate(milestone.createdAt)}</span></div>
       <div class="meta-row"><span class="meta-key">Updated</span><span class="meta-value">${formatDate(milestone.updatedAt)}</span></div>
     </div>
@@ -307,6 +325,12 @@ function renderMilestoneDetail(): void {
     <button id="milestone-save" ${canWrite ? "" : "disabled"}>Save</button>
     ${canWrite ? "" : '<p class="read-only-note">Your account does not have write access to milestones.</p>'}
   `;
+
+  byId<HTMLButtonElement>("milestone-view-issues").addEventListener("click", () => {
+    issueMilestoneFilter = milestone.id;
+    setActiveTab("issues");
+    renderIssueList();
+  });
 
   if (canWrite) {
     byId<HTMLButtonElement>("milestone-save").addEventListener("click", () => {
@@ -354,7 +378,11 @@ function setActiveTab(tab: "issues" | "milestones"): void {
   byId<HTMLDivElement>("view-milestones").hidden = tab !== "milestones";
 }
 
-byId<HTMLButtonElement>("tab-issues").addEventListener("click", () => setActiveTab("issues"));
+byId<HTMLButtonElement>("tab-issues").addEventListener("click", () => {
+  issueMilestoneFilter = null;
+  setActiveTab("issues");
+  renderIssueList();
+});
 byId<HTMLButtonElement>("tab-milestones").addEventListener("click", () => setActiveTab("milestones"));
 byId<HTMLButtonElement>("refresh-button").addEventListener("click", () => {
   post({ type: "requestState", forceRefresh: true });
