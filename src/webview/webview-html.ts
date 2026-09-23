@@ -38,7 +38,6 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
   </div>
 
   <div id="view-issues" class="view">
-    <div id="issue-filter-banner" class="filter-banner" hidden></div>
     <div class="list" id="issue-list"></div>
     <div class="detail" id="issue-detail"></div>
   </div>

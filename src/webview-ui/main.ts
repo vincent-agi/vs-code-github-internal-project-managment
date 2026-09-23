@@ -174,20 +174,6 @@ function renderLabelBadges(labels: readonly string[]): string {
 }
 
 function renderIssueList(): void {
-  const filterBanner = byId<HTMLDivElement>("issue-filter-banner");
-  if (issueMilestoneFilter) {
-    const milestone = findMilestone(issueMilestoneFilter);
-    filterBanner.hidden = false;
-    filterBanner.innerHTML = `<span>Filtered by milestone: ${milestone ? escapeHtml(milestone.title) : "—"}</span><button id="issue-filter-clear" type="button" class="assign-to-me">Clear</button>`;
-    byId<HTMLButtonElement>("issue-filter-clear").addEventListener("click", () => {
-      issueMilestoneFilter = null;
-      renderIssueList();
-    });
-  } else {
-    filterBanner.hidden = true;
-    filterBanner.innerHTML = "";
-  }
-
   const list = byId<HTMLDivElement>("issue-list");
   list.innerHTML = "";
   const issues = issueMilestoneFilter
