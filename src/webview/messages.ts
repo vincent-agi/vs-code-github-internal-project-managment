@@ -36,4 +36,5 @@ export type OutboundMessage =
       readonly currentUser: IAuthenticatedUser;
     }
   | { readonly type: "repositoryOptions"; readonly options: readonly RepositoryOptionView[] }
+  | { readonly type: "actionSuccess"; readonly message: string }
   | { readonly type: "error"; readonly message: string };

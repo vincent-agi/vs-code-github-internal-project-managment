@@ -77,6 +77,7 @@ type OutboundMessage =
       currentUser: AuthenticatedUser;
     }
   | { type: "repositoryOptions"; options: RepositoryOptionView[] }
+  | { type: "actionSuccess"; message: string }
   | { type: "error"; message: string };
 
 type InboundMessage =
@@ -116,16 +117,34 @@ function byId<T extends HTMLElement>(id: string): T {
   return el as T;
 }
 
+let errorTimer: number | undefined;
+
 function showError(message: string): void {
   const banner = byId<HTMLDivElement>("error-banner");
   banner.textContent = message;
   banner.hidden = false;
+  window.clearTimeout(errorTimer);
+  errorTimer = window.setTimeout(clearError, 5000);
 }
 
 function clearError(): void {
+  window.clearTimeout(errorTimer);
   const banner = byId<HTMLDivElement>("error-banner");
   banner.hidden = true;
   banner.textContent = "";
+}
+
+let toastTimer: number | undefined;
+
+function showToast(message: string): void {
+  const toast = byId<HTMLDivElement>("toast");
+  toast.textContent = message;
+  toast.className = "toast toast-success";
+  toast.hidden = false;
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => {
+    toast.hidden = true;
+  }, 3000);
 }
 
 function formatDate(value: string | null): string {
@@ -370,6 +389,8 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
   } else if (message.type === "repositoryOptions") {
     clearError();
     renderRepositoryPicker(message.options);
+  } else if (message.type === "actionSuccess") {
+    showToast(message.message);
   } else if (message.type === "error") {
     showError(message.message);
   }

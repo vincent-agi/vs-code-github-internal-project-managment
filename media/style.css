@@ -29,6 +29,10 @@ body {
   border-bottom: 2px solid transparent;
 }
 
+.tab:hover:not(.active) {
+  background-color: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+}
+
 .tab.active {
   border-bottom-color: var(--vscode-focusBorder);
   font-weight: 600;
@@ -218,4 +222,21 @@ body {
   opacity: 0.7;
   font-style: italic;
   margin-top: 12px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  padding: 8px 16px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  font-size: 0.9em;
+  z-index: 100;
+}
+
+.toast-success {
+  background-color: var(--vscode-statusBarItem-prominentBackground, var(--vscode-button-background));
+  color: var(--vscode-button-foreground);
+  border: 1px solid var(--vscode-button-border, transparent);
 }

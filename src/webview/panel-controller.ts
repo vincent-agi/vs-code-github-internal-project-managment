@@ -45,21 +45,25 @@ export class PanelController {
         case "createIssue":
           await this.guardWrite("canWriteIssues");
           await this.provider.createIssue(message.input);
+          this.postMessage({ type: "actionSuccess", message: "Issue created." });
           await this.sendState();
           return;
         case "updateIssue":
           await this.guardWrite("canWriteIssues");
           await this.provider.updateIssue(message.id, message.patch);
+          this.postMessage({ type: "actionSuccess", message: "Issue updated." });
           await this.sendState();
           return;
         case "createMilestone":
           await this.guardWrite("canWriteMilestones");
           await this.provider.createMilestone(message.input);
+          this.postMessage({ type: "actionSuccess", message: "Milestone created." });
           await this.sendState();
           return;
         case "updateMilestone":
           await this.guardWrite("canWriteMilestones");
           await this.provider.updateMilestone(message.id, message.patch);
+          this.postMessage({ type: "actionSuccess", message: "Milestone updated." });
           await this.sendState();
           return;
       }
