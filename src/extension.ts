@@ -210,8 +210,13 @@ function reportBranchCreationOutcome(
  * Returns `undefined` if the user backs out.
  */
 async function pickBaseBranch(gitService: SimpleGitService, cwd: string): Promise<string | undefined> {
-  await gitService.fetch(cwd);
-  const branches = await gitService.listBranches(cwd);
+  const branches = await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: "Fetching branches from origin…" },
+    async () => {
+      await gitService.fetch(cwd);
+      return gitService.listBranches(cwd);
+    },
+  );
   if (branches.length === 0) {
     throw new Error("No branches found on 'origin'.");
   }
