@@ -6,6 +6,15 @@ body {
   margin: 0;
 }
 
+/*
+ * Author rules of equal specificity beat the UA [hidden] rule, so any
+ * later `.view { display: flex }` etc. would otherwise render an element
+ * that has the `hidden` attribute set. Force it explicitly.
+ */
+[hidden] {
+  display: none !important;
+}
+
 .tabs {
   display: flex;
   border-bottom: 1px solid var(--vscode-panel-border);
