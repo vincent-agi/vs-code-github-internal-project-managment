@@ -25,6 +25,29 @@
         "title": "Remote Project Manager: Open Panel"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "remoteProjectManager",
+          "title": "Remote Project Manager",
+          "icon": "media/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "remoteProjectManager": [
+        {
+          "id": "remoteProjectManager.sidebar",
+          "name": "Remote Project Manager"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "remoteProjectManager.sidebar",
+        "contents": "Manage GitHub and GitLab Issues and Milestones from a central panel.\n[Open Panel](command:remoteProjectManager.openPanel)"
+      }
+    ],
     "configuration": {
       "title": "Remote Project Manager",
       "properties": {

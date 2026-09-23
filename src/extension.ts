@@ -385,11 +385,26 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
   });
 }
 
+/**
+ * Empty tree so the sidebar view has no content of its own and always
+ * falls back to the `viewsWelcome` entry, whose "Open Panel" link runs
+ * the `remoteProjectManager.openPanel` command.
+ */
+class EmptyTreeDataProvider implements vscode.TreeDataProvider<never> {
+  getTreeItem(element: never): vscode.TreeItem {
+    return element;
+  }
+  getChildren(): never[] {
+    return [];
+  }
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("remoteProjectManager.openPanel", () => {
       void openPanel(context);
     }),
+    vscode.window.registerTreeDataProvider("remoteProjectManager.sidebar", new EmptyTreeDataProvider()),
   );
 }
 

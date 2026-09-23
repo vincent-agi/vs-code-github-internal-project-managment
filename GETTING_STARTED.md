@@ -50,7 +50,7 @@ Use `"gitlab"` for `provider` if your project lives on GitLab. `repository` is a
 
 ## Step 3: Open the Panel
 
-Open the Command Palette (`Cmd/Ctrl+Shift+P`) and run:
+Either click the **Remote Project Manager** icon in the Activity Bar (left-hand sidebar) and then **Open Panel**, or open the Command Palette (`Cmd/Ctrl+Shift+P`) and run:
 
 ```
 Remote Project Manager: Open Panel

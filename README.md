@@ -67,7 +67,7 @@ This compiles the extension and runs `vsce package`, producing `remote-project-m
 ### Connect a repository
 
 1. Set `remoteProjectManager.repository` in your workspace settings (e.g. `"acme/widgets"`), **or** open a workspace whose git `origin` remote points at GitHub/GitLab — the extension detects it automatically.
-2. Run the **Remote Project Manager: Open Panel** command from the Command Palette.
+2. Open the panel — click the **Remote Project Manager** icon in the Activity Bar, or run the **Remote Project Manager: Open Panel** command from the Command Palette.
 3. On first use with GitHub, VS Code will prompt you to sign in (native GitHub auth). On first use with GitLab, you'll be prompted to paste a Personal Access Token.
 
 See [Issues and Milestones Management](docs/functionals/02-issues-and-milestones-management.md) for panel usage details.
