@@ -1094,18 +1094,18 @@ async function createPrFromIssue(context: vscode.ExtensionContext): Promise<void
 
   let defaultBranch: string;
   let currentBranch: string;
+  let commits: CommitRef[];
   try {
     defaultBranch = await gitService.getDefaultBranch(cwd);
     currentBranch = await gitService.getCurrentBranch(cwd);
+    const log = await gitService.log(cwd, `origin/${defaultBranch}..HEAD`);
+    commits = log.map((entry) => ({ hash: entry.hash, message: entry.message }));
   } catch (error) {
     void vscode.window.showErrorMessage(
-      `Could not resolve branches: ${error instanceof Error ? error.message : String(error)}`,
+      `Could not resolve branches or commits: ${error instanceof Error ? error.message : String(error)}`,
     );
     return;
   }
-
-  const log = await gitService.log(cwd, `origin/${defaultBranch}..HEAD`);
-  const commits: CommitRef[] = log.map((entry) => ({ hash: entry.hash, message: entry.message }));
 
   const title = buildPrTitle(issue);
   const body = buildPrBody(issue, milestone, commits);
