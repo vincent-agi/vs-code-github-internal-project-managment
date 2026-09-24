@@ -123,6 +123,7 @@ let currentAvailableAssignableUsers: string[] = [];
 let selectedIssueId: string | null = null;
 let selectedMilestoneId: string | null = null;
 let issueMilestoneFilter: string | null = null;
+let issueSearchQuery = "";
 let showNewIssueForm = false;
 let showNewMilestoneForm = false;
 let lastState: StateSnapshot | null = null;
@@ -196,9 +197,16 @@ function renderLabelBadges(labels: readonly string[]): string {
 function renderIssueList(): void {
   const list = byId<HTMLDivElement>("issue-list");
   list.innerHTML = "";
-  const issues = issueMilestoneFilter
-    ? currentIssues.filter((candidate) => candidate.milestoneId === issueMilestoneFilter)
-    : currentIssues;
+  const query = issueSearchQuery.trim().toLowerCase();
+  const issues = currentIssues.filter((candidate) => {
+    if (issueMilestoneFilter && candidate.milestoneId !== issueMilestoneFilter) {
+      return false;
+    }
+    if (query && !candidate.title.toLowerCase().includes(query) && !candidate.body.toLowerCase().includes(query)) {
+      return false;
+    }
+    return true;
+  });
   for (const issue of issues) {
     const item = document.createElement("div");
     item.className = "item" + (issue.id === selectedIssueId ? " selected" : "");
@@ -529,6 +537,10 @@ function setActiveTab(tab: "issues" | "milestones"): void {
 byId<HTMLButtonElement>("tab-issues").addEventListener("click", () => {
   issueMilestoneFilter = null;
   setActiveTab("issues");
+  renderIssueList();
+});
+byId<HTMLInputElement>("issue-search").addEventListener("input", (event) => {
+  issueSearchQuery = (event.target as HTMLInputElement).value;
   renderIssueList();
 });
 byId<HTMLButtonElement>("tab-milestones").addEventListener("click", () => setActiveTab("milestones"));

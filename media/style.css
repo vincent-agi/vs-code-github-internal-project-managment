@@ -89,8 +89,22 @@ body {
 }
 
 .list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 6px 8px;
   border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.list-toolbar input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, transparent);
+  padding: 4px 6px;
+  font-family: inherit;
 }
 
 .list-column .list {
