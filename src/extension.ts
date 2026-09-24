@@ -399,10 +399,26 @@ class EmptyTreeDataProvider implements vscode.TreeDataProvider<never> {
   }
 }
 
+/**
+ * Clears the stored GitLab Personal Access Token from `SecretStorage`.
+ * There is no way to detect a revoked/expired token proactively, so this
+ * is the escape hatch for switching accounts or recovering from a stale
+ * token: the next GitLab connection prompts for a fresh one.
+ */
+async function signOutGitLab(context: vscode.ExtensionContext): Promise<void> {
+  await context.secrets.delete(secretKeyFor("gitlab"));
+  void vscode.window.showInformationMessage(
+    "Signed out of GitLab. You'll be prompted for a new token next time the panel connects to a GitLab repository.",
+  );
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("remoteProjectManager.openPanel", () => {
       void openPanel(context);
+    }),
+    vscode.commands.registerCommand("remoteProjectManager.signOutGitLab", () => {
+      void signOutGitLab(context);
     }),
     vscode.window.registerTreeDataProvider("remoteProjectManager.sidebar", new EmptyTreeDataProvider()),
   );
