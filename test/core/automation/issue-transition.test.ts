@@ -41,6 +41,12 @@ describe("detectIssueTransition", () => {
     expect(detectIssueTransition(before, after)).toBe("started-in-progress");
   });
 
+  it("reports 'started-in-progress' when the label is added in a different case", () => {
+    const before = makeIssue({ labels: [] });
+    const after = makeIssue({ labels: ["In-Progress"] });
+    expect(detectIssueTransition(before, after)).toBe("started-in-progress");
+  });
+
   it("reports 'none' when the 'in-progress' label is removed", () => {
     const before = makeIssue({ labels: ["in-progress"] });
     const after = makeIssue({ labels: [] });
