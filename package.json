@@ -111,13 +111,21 @@
     "watch:webview": "tsc -w -p tsconfig.webview.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "package": "npm run compile && vsce package"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^4.0.0",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.9",
     "typescript": "^5.4.0",
+    "typescript-eslint": "^8.70.1",
     "vitest": "^1.4.0"
   },
   "dependencies": {

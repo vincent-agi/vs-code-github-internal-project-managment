@@ -19,7 +19,7 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
     http-equiv="Content-Security-Policy"
     content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';"
   />
-  <link href="${styleUri}" rel="stylesheet" />
+  <link href="${styleUri.toString()}" rel="stylesheet" />
   <title>Remote Project Manager</title>
 </head>
 <body>
@@ -73,7 +73,7 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
     <div class="detail" id="milestone-detail"></div>
   </div>
 
-  <script nonce="${nonce}" src="${scriptUri}"></script>
+  <script nonce="${nonce}" src="${scriptUri.toString()}"></script>
 </body>
 </html>`;
 }

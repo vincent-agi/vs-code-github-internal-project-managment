@@ -28,7 +28,7 @@ function makeClient(overrides: Partial<GitlabClient> = {}): GitlabClient {
       showCurrentUser: vi.fn(),
     },
     ...overrides,
-  } as unknown as GitlabClient;
+  };
 }
 
 const rawIssue = {

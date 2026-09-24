@@ -21,7 +21,7 @@ function makeClient(overrides: Partial<GithubClient> = {}): GithubClient {
       getAuthenticated: vi.fn(),
     },
     ...overrides,
-  } as unknown as GithubClient;
+  };
 }
 
 const rawIssue = {
@@ -108,7 +108,7 @@ describe("GithubProvider.createIssue", () => {
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({ owner: "acme", repo: "widgets", title: "Bug", body: "desc" }),
     );
-    expect(create.mock.calls[0][0].milestone).toBeUndefined();
+    expect((create.mock.calls[0][0] as { milestone?: unknown }).milestone).toBeUndefined();
     expect(issue.number).toBe(42);
   });
 

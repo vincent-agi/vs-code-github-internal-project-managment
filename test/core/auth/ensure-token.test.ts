@@ -4,9 +4,10 @@ import { ensureToken, type ICredentialStore } from "../../../src/core/auth/ensur
 function makeStore(initialToken: string | undefined): ICredentialStore {
   let stored = initialToken;
   return {
-    getToken: vi.fn(async () => stored),
-    setToken: vi.fn(async (_provider: string, token: string) => {
+    getToken: vi.fn(() => Promise.resolve(stored)),
+    setToken: vi.fn((_provider: string, token: string) => {
       stored = token;
+      return Promise.resolve();
     }),
   };
 }

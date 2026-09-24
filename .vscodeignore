@@ -6,6 +6,10 @@ docs/adr/**
 .vscodeignore
 tsconfig.json
 tsconfig.webview.json
+tsconfig.eslint.json
 vitest.config.ts
+eslint.config.js
+.prettierrc
+.prettierignore
 **/*.map
 **/.DS_Store
