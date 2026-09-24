@@ -809,8 +809,11 @@ async function getScmInputBox(cwd: string): Promise<{ value: string } | undefine
   }
   const exports = extension.isActive ? extension.exports : await extension.activate();
   const api = exports.getAPI(1);
-  const repository =
-    api.repositories.find((candidate) => candidate.rootUri.fsPath === cwd) ?? api.repositories[0];
+  // No `?? api.repositories[0]` fallback: in a multi-root workspace with
+  // several git repositories, falling back to "whichever one the git
+  // extension found first" would silently write the composed message
+  // into an unrelated repo's input box instead of the clipboard.
+  const repository = api.repositories.find((candidate) => candidate.rootUri.fsPath === cwd);
   return repository?.inputBox;
 }
 
