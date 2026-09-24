@@ -15,7 +15,7 @@ function makeClient(overrides: Partial<GitlabClient> = {}): GitlabClient {
       create: vi.fn(),
       edit: vi.fn(),
     },
-    Labels: {
+    ProjectLabels: {
       all: vi.fn().mockResolvedValue([]),
     },
     ProjectMembers: {
@@ -210,7 +210,9 @@ describe("GitlabProvider.updateMilestone", () => {
 describe("GitlabProvider.listLabels", () => {
   it("returns label names", async () => {
     const all = vi.fn().mockResolvedValue([{ name: "bug" }, { name: "docs" }]);
-    const client = makeClient({ Labels: { all } as unknown as GitlabClient["Labels"] });
+    const client = makeClient({
+      ProjectLabels: { all } as unknown as GitlabClient["ProjectLabels"],
+    });
     const provider = new GitlabProvider(client, "acme/widgets");
 
     const labels = await provider.listLabels();
