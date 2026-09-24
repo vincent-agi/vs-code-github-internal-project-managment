@@ -111,6 +111,7 @@
     "watch:webview": "tsc -w -p tsconfig.webview.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:ci": "vitest run --reporter=junit --reporter=default --outputFile=test-results/junit.xml",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

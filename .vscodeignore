@@ -1,4 +1,5 @@
 .vscode/**
+.github/**
 src/**
 test/**
 docs/adr/**
@@ -11,5 +12,7 @@ vitest.config.ts
 eslint.config.js
 .prettierrc
 .prettierignore
+CONTRIBUTING.md
+test-results/**
 **/*.map
 **/.DS_Store
