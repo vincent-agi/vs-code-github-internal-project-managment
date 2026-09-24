@@ -110,3 +110,4 @@ Want a different branch name shape (e.g. no type prefix, or a custom separator)?
 - Something not working? Check [Troubleshooting and FAQ](docs/functionals/04-troubleshooting-and-faq.md).
 - Want to understand exactly how branch names are generated, or how caching/permissions work? See the full guides in [`docs/functionals/`](docs/functionals/INDEX.md).
 - Full settings reference: see the [README](README.md#extension-settings).
+- Ready for a standardized commit format and AI-agent context export? See [Git Automation and AI Context Commands](docs/functionals/05-git-automation-and-ai-context.md).
