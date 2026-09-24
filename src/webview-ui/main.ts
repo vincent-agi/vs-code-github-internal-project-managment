@@ -335,7 +335,7 @@ function renderIssueDetail(): void {
   detail.innerHTML = `
     <div class="meta">
       <div class="meta-row"><span class="meta-key">Number</span><span class="meta-value">#${issue.number}</span></div>
-      <div class="meta-row"><span class="meta-key">Link</span><span class="meta-value"><a href="${escapeAttr(issue.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(issue.url)}</a></span></div>
+      <div class="meta-row"><span class="meta-key">Link</span><span class="meta-value"><a href="${escapeAttr(safeHref(issue.url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(issue.url)}</a></span></div>
       <div class="meta-row"><span class="meta-key">Branch</span><span class="meta-value"><button id="issue-create-branch" type="button" class="assign-to-me">Create branch</button></span></div>
       <div class="meta-row"><span class="meta-key">Milestone</span><span class="meta-value">${milestone ? escapeHtml(milestone.title) : "—"}</span></div>
       <div class="meta-row"><span class="meta-key">Labels</span><span class="meta-value">${issue.labels.length > 0 ? renderLabelBadges(issue.labels) : "—"}</span></div>
@@ -346,7 +346,7 @@ function renderIssueDetail(): void {
           ${showAssignToMe ? '<button id="issue-assign-to-me" type="button" class="assign-to-me">Assign to me</button>' : ""}
         </span>
       </div>
-      <div class="meta-row"><span class="meta-key">Comments</span><span class="meta-value"><a href="${escapeAttr(issue.url)}" target="_blank" rel="noopener noreferrer">${issue.commentsCount}</a></span></div>
+      <div class="meta-row"><span class="meta-key">Comments</span><span class="meta-value"><a href="${escapeAttr(safeHref(issue.url))}" target="_blank" rel="noopener noreferrer">${issue.commentsCount}</a></span></div>
       <div class="meta-row"><span class="meta-key">Created</span><span class="meta-value">${formatDate(issue.createdAt)}</span></div>
       <div class="meta-row"><span class="meta-key">Updated</span><span class="meta-value">${formatDate(issue.updatedAt)}</span></div>
       <div class="meta-row"><span class="meta-key">Closed</span><span class="meta-value">${formatDate(issue.closedAt)}</span></div>
@@ -539,7 +539,7 @@ function renderMilestoneDetail(): void {
   detail.innerHTML = `
     <div class="meta">
       <div class="meta-row"><span class="meta-key">Number</span><span class="meta-value">#${milestone.number}</span></div>
-      <div class="meta-row"><span class="meta-key">Link</span><span class="meta-value"><a href="${escapeAttr(milestone.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(milestone.url)}</a></span></div>
+      <div class="meta-row"><span class="meta-key">Link</span><span class="meta-value"><a href="${escapeAttr(safeHref(milestone.url))}" target="_blank" rel="noopener noreferrer">${escapeHtml(milestone.url)}</a></span></div>
       <div class="meta-row"><span class="meta-key">Due</span><span class="meta-value">${formatDate(milestone.dueOn)}</span></div>
       <div class="meta-row"><span class="meta-key">Issues</span><span class="meta-value">${openCount} open, ${closedCount} closed <button id="milestone-view-issues" type="button" class="assign-to-me">View issues</button></span></div>
       <div class="meta-row"><span class="meta-key">Created</span><span class="meta-value">${formatDate(milestone.createdAt)}</span></div>
@@ -599,6 +599,24 @@ function escapeHtml(value: string): string {
 
 function escapeAttr(value: string): string {
   return escapeHtml(value).replace(/"/g, "&quot;");
+}
+
+/**
+ * Validates `url` is `http:`/`https:` before it's used as an `href`.
+ * `issue.url`/`milestone.url` come straight from the provider's raw API
+ * response — `escapeAttr` alone only entity-escapes the string, it
+ * doesn't restrict the scheme, so a `javascript:` URL from a
+ * compromised/malicious provider would otherwise pass through
+ * unmodified into a clickable link. Falls back to `"#"` for anything
+ * else (never renders the rejected value at all, not even escaped).
+ */
+function safeHref(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? url : "#";
+  } catch {
+    return "#";
+  }
 }
 
 function renderRepositoryPicker(options: RepositoryOptionView[]): void {

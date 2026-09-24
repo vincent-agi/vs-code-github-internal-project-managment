@@ -2,6 +2,7 @@
 .github/**
 src/**
 test/**
+test-integration/**
 docs/adr/**
 .gitignore
 .vscodeignore

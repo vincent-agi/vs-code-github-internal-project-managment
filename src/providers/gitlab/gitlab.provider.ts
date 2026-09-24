@@ -58,7 +58,10 @@ export interface GitlabClient {
     all(projectId: string): Promise<readonly { name: string }[]>;
   };
   ProjectMembers: {
-    all(projectId: string): Promise<readonly { id: number; username: string }[]>;
+    all(
+      projectId: string,
+      options?: { includeInherited?: boolean },
+    ): Promise<readonly { id: number; username: string }[]>;
   };
   Projects: {
     show(projectId: string): Promise<{
@@ -102,10 +105,14 @@ export class GitlabProvider implements IProjectProvider {
 
   async getCapabilities(_options?: FetchOptions): Promise<ProviderCapabilities> {
     const project = await this.client.Projects.show(this.projectPath);
-    const accessLevel =
-      project.permissions?.project_access?.access_level ??
-      project.permissions?.group_access?.access_level ??
-      0;
+    // GitLab can return both project_access and group_access at once
+    // (direct grant plus inherited group grant); the effective
+    // permission is the higher of the two, not "project_access if
+    // present, else group_access".
+    const accessLevel = Math.max(
+      project.permissions?.project_access?.access_level ?? 0,
+      project.permissions?.group_access?.access_level ?? 0,
+    );
     const canWrite = accessLevel >= DEVELOPER_ACCESS_LEVEL;
     return {
       canReadIssues: true,
@@ -141,7 +148,13 @@ export class GitlabProvider implements IProjectProvider {
     if (usernames.length === 0) {
       return [];
     }
-    const members = await this.client.ProjectMembers.all(this.projectPath);
+    // includeInherited: GitLab's plain /members endpoint (gitbeaker's
+    // default) only lists direct members; access granted via a parent
+    // group/subgroup — the common pattern on larger projects — needs
+    // /members/all instead.
+    const members = await this.client.ProjectMembers.all(this.projectPath, {
+      includeInherited: true,
+    });
     const idByUsername = new Map(
       members.map((member) => [member.username.toLowerCase(), member.id]),
     );
@@ -210,7 +223,9 @@ export class GitlabProvider implements IProjectProvider {
   }
 
   async listAssignableUsers(_options?: FetchOptions): Promise<readonly string[]> {
-    const members = await this.client.ProjectMembers.all(this.projectPath);
+    const members = await this.client.ProjectMembers.all(this.projectPath, {
+      includeInherited: true,
+    });
     return members.map((member) => member.username);
   }
 }

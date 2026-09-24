@@ -85,6 +85,34 @@ The extension recognizes `origin` remotes on `github.com`, `gitlab.com`, and —
 
 The picker lists every workspace folder whose `origin` remote resolves to a recognized host — including folders you might not think of as "the project" (e.g. a submodule or a docs-only checkout). Pick the correct one; your choice isn't persisted across panel sessions, so you'll see the picker again next time if multiple folders still match.
 
+## Git Automation and AI Context Commands
+
+See [Git Automation and AI Context Commands](05-git-automation-and-ai-context.md) for what each command does; this section covers failure modes.
+
+### "No connected repository" from Copy Issue Context / Create PR from Issue / Export Milestone Context
+
+These three need a connected provider. Either open the panel once first (they'll reuse its connection), or set `remoteProjectManager.repository` so they can connect on their own without the panel open.
+
+### "Could not determine which issue this branch is for"
+
+**Create PR from Issue** resolves its target issue from the current branch name (the first run of digits in it, e.g. `53` in `fix/53-description`) — see [how "active issue" resolution works](05-git-automation-and-ai-context.md#how-the-active-issue-is-resolved). Rename the branch to include the issue number, or use **Create branch** from the issue's detail pane to generate a correctly named one.
+
+### Create PR from Issue does nothing, no error shown
+
+If this happens, it's worth a bug report — as of this writing, every known failure path (unresolved branches, an unreachable `origin/<default>` ref, an unresolvable repository URL) shows an error message or falls back to copying the PR body to the clipboard instead.
+
+### Lint Commit History flags a commit that looks correct
+
+If the flagged commit uses a Gitmoji composed of more than one Unicode codepoint (e.g. 🔒️ `:lock:`, ♻️ `:recycle:`, 🧑‍💻 `:technologist:` — variation-selector or ZWJ sequences, common in the bundled Gitmoji list), make sure you're on a version that matches full emoji grapheme clusters, not just a single codepoint, in its validator.
+
+### Compose Commit copied the message to the clipboard instead of filling in Source Control
+
+This happens when the built-in `vscode.git` extension isn't active, or — in a multi-root workspace — no open repository's path exactly matches the workspace folder the command resolved. The composed message is never written into an unrelated repository's input box; paste it manually instead.
+
+### Export Milestone Context for AI Agents refuses to run, citing `aiContextFile`
+
+`remoteProjectManager.aiContextFile` resolved to a path outside the workspace folder (its `..` segments would escape it) and was rejected — see [Path Safety for AI Context Export](01-authentication-and-security.md#path-safety-for-ai-context-export). Point the setting at a path that stays inside the workspace.
+
 ## Packaging and Installation
 
 ### Building a `.vsix` for "Install from VSIX"

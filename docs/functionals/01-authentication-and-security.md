@@ -59,10 +59,19 @@ Recommended GitLab PAT scopes:
 
 ## What the Extension Can and Cannot Do
 
-| Capability                                 | GitHub                                                                | GitLab                                               |
-| ------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------- |
-| Read issues/milestones                     | Governed by the `repo` scope's read access                            | Governed by your PAT scope and project role          |
-| Write issues/milestones                    | Governed by the `repo` scope's write access and your repo permissions | Requires **Developer** role or higher on the project |
-| Detect read/write capability automatically | Yes (`getCapabilities()`)                                             | Yes (`getCapabilities()`)                            |
+| Capability                                 | GitHub                                                                                           | GitLab                                                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Read issues/milestones                     | Governed by the `repo` scope's read access                                                       | Governed by your PAT scope and project role                                                             |
+| Write issues                               | Governed by the `repo` scope's write access, or the **Triage** role (issue-only, no push needed) | Requires **Developer** role or higher — direct, group-inherited, or the higher of the two if both apply |
+| Write milestones                           | Governed by the `repo` scope's write access (Triage is not sufficient)                           | Requires **Developer** role or higher, same as issues                                                   |
+| Detect read/write capability automatically | Yes (`getCapabilities()`)                                                                        | Yes (`getCapabilities()`)                                                                               |
 
 The panel calls `getCapabilities()` on load and disables editing controls in the UI when your account is read-only — you'll never see a "successful" edit silently fail due to missing permissions.
+
+Assignee suggestions (GitLab) include members with access **inherited from a parent group or subgroup**, not just members added directly to the project — the common pattern on larger GitLab projects.
+
+## Path Safety for AI Context Export
+
+**Export Milestone Context for AI Agents** ([Git Automation and AI Context Commands](05-git-automation-and-ai-context.md)) writes to a workspace-relative path controlled by `remoteProjectManager.aiContextFile` — a plain setting, which means it can be set by a repository's own committed `.vscode/settings.json`, not just your own user settings. The extension validates the resolved path stays inside the workspace folder before writing anything; a value whose `..` segments would escape it (e.g. `"../../../.ssh/authorized_keys"`) is rejected with an error instead.
+
+The central panel's rendered issue/milestone links (`href`) are also restricted to `http:`/`https:` URLs before being rendered, independent of the page's Content-Security-Policy — defense in depth against a compromised or malicious provider response.

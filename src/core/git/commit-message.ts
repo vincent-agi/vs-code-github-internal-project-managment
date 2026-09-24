@@ -62,13 +62,23 @@ export interface CommitValidationResult {
 }
 
 /**
- * Matches `<type>(<scope>): <gitmoji> <description>`, with `(<scope>)`
- * optional. The gitmoji may be a raw emoji codepoint or a `:code:` token,
- * so messages composed by hand (without the interactive picker) still
- * validate.
+ * Matches one full emoji grapheme cluster: a base
+ * `\p{Extended_Pictographic}` codepoint, an optional skin-tone modifier,
+ * an optional `U+FE0F` variation selector, and optionally more of the
+ * same joined by `U+200D` (ZWJ) — e.g. `:technologist:`'s 🧑‍💻. Several
+ * bundled Gitmoji glyphs (`:lock:`, `:recycle:`, `:package:`, ...) are
+ * multi-codepoint sequences like this; matching only a single codepoint
+ * would reject them even though they're exactly what the Gitmoji picker
+ * produces.
  */
-const COMMIT_SUBJECT_PATTERN =
-  /^[a-z]+(\([\w./-]+\))?: (:[a-z0-9_+-]+:|\p{Extended_Pictographic}) .+$/u;
+export const GITMOJI_PATTERN_SOURCE =
+  "\\p{Extended_Pictographic}\\p{Emoji_Modifier}?\\uFE0F?(?:\\u200D\\p{Extended_Pictographic}\\p{Emoji_Modifier}?\\uFE0F?)*";
+
+/** Matches `<type>(<scope>): <gitmoji> <description>`, with `(<scope>)` optional. */
+const COMMIT_SUBJECT_PATTERN = new RegExp(
+  `^[a-z]+(\\([\\w./-]+\\))?: (:[a-z0-9_+-]+:|${GITMOJI_PATTERN_SOURCE}) .+$`,
+  "u",
+);
 
 /**
  * Validates a commit message's subject line (its first line) against the

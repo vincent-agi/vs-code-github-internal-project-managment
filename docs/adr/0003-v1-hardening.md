@@ -63,6 +63,11 @@ Self-hosted GitLab (custom domains) is out of scope for auto-detection;
 only `github.com`/`gitlab.com` are recognized. Supporting arbitrary
 hosts would need a settings-based host allowlist, deferred until needed.
 
+> **Update:** a later phase added exactly that allowlist —
+> `remoteProjectManager.gitlabHost` — so one self-hosted GitLab host is
+> now recognized for both auto-detection and API connection. See
+> [Troubleshooting and FAQ](../functionals/04-troubleshooting-and-faq.md#no-githubgitlab-repository-detected-in-this-workspace).
+
 ### Webview re-render guard is a structural diff, not a subscription model
 
 `hasStateChanged` (`src/webview-ui/state-diff.ts`) compares the incoming

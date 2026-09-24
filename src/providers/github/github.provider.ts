@@ -71,7 +71,7 @@ export interface GithubClient {
   };
   repos: {
     get(params: { owner: string; repo: string }): Promise<{
-      data: { permissions?: { pull?: boolean; push?: boolean } };
+      data: { permissions?: { pull?: boolean; push?: boolean; triage?: boolean } };
     }>;
   };
   users: {
@@ -157,10 +157,14 @@ export class GithubProvider implements IProjectProvider {
   async getCapabilities(_options?: FetchOptions): Promise<ProviderCapabilities> {
     const { data } = await this.client.repos.get({ owner: this.owner, repo: this.repo });
     const canWrite = Boolean(data.permissions?.push);
+    // GitHub's "Triage" role grants issue/label/assignee write access
+    // (create, edit, assign, comment) without repo push access — but
+    // not milestone create/edit, which stays gated on push.
+    const canWriteIssues = canWrite || Boolean(data.permissions?.triage);
     const canRead = Boolean(data.permissions?.pull ?? true);
     return {
       canReadIssues: canRead,
-      canWriteIssues: canWrite,
+      canWriteIssues,
       canReadMilestones: canRead,
       canWriteMilestones: canWrite,
     };

@@ -18,8 +18,10 @@ predictable and a valid git ref.
 
 `IGitService` (`src/core/git/git-service.interface.ts`) declares the
 operations needed: remote lookup, dirty-tree status, fetch, stash,
-default-branch resolution, checkout, and `check-ref-format` validation.
-`SimpleGitService` implements it over the `simple-git` package rather
+default-branch resolution, checkout, and `check-ref-format` validation
+(current-branch lookup and commit log reading were added later for
+ADR-0005's git-automation commands). `SimpleGitService` implements it over
+the `simple-git` package rather
 than hand-built `child_process` calls, trading one dependency for typed,
 promise-based results and not having to hand-parse `git status`
 porcelain output ourselves.

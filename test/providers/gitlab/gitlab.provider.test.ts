@@ -118,6 +118,7 @@ describe("GitlabProvider.createIssue", () => {
       "Bug",
       expect.objectContaining({ assignee_ids: [7] }),
     );
+    expect(all).toHaveBeenCalledWith("acme/widgets", { includeInherited: true });
   });
 
   it("silently drops a username with no matching project member", async () => {
@@ -304,8 +305,21 @@ describe("GitlabProvider.listAssignableUsers", () => {
 
     const users = await provider.listAssignableUsers();
 
-    expect(all).toHaveBeenCalledWith("acme/widgets");
+    expect(all).toHaveBeenCalledWith("acme/widgets", { includeInherited: true });
     expect(users).toEqual(["octocat"]);
+  });
+
+  it("includes members with access inherited from a parent group", async () => {
+    const all = vi.fn().mockResolvedValue([{ username: "octocat" }, { username: "group-member" }]);
+    const client = makeClient({
+      ProjectMembers: { all } as unknown as GitlabClient["ProjectMembers"],
+    });
+    const provider = new GitlabProvider(client, "acme/widgets");
+
+    const users = await provider.listAssignableUsers();
+
+    expect(all).toHaveBeenCalledWith("acme/widgets", { includeInherited: true });
+    expect(users).toEqual(["octocat", "group-member"]);
   });
 });
 
@@ -354,6 +368,21 @@ describe("GitlabProvider.getCapabilities", () => {
 
   it("falls back to group_access when project_access is absent", async () => {
     const show = vi.fn().mockResolvedValue({ permissions: { group_access: { access_level: 40 } } });
+    const client = makeClient({ Projects: { show } as unknown as GitlabClient["Projects"] });
+    const provider = new GitlabProvider(client, "acme/widgets");
+
+    const capabilities = await provider.getCapabilities();
+
+    expect(capabilities.canWriteIssues).toBe(true);
+  });
+
+  it("takes the higher of project_access and group_access when both are present", async () => {
+    const show = vi.fn().mockResolvedValue({
+      permissions: {
+        project_access: { access_level: 10 }, // Reporter, direct
+        group_access: { access_level: 40 }, // Maintainer, inherited
+      },
+    });
     const client = makeClient({ Projects: { show } as unknown as GitlabClient["Projects"] });
     const provider = new GitlabProvider(client, "acme/widgets");
 

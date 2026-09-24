@@ -26,6 +26,10 @@ Three layers, each only depending on the layer inside it:
 - `src/core/` — domain layer. Plain TypeScript types and interfaces
   (`IIssue`, `IMilestone`, `IProjectProvider`). No VS Code import, no HTTP
   client import. This layer defines the contract everything else honors.
+  It later grew beyond provider domain types to include other
+  framework-agnostic logic under the same no-VS-Code-import rule — git
+  automation and AI context formatting (`src/core/git/`, `src/core/ai/`,
+  see [ADR-0005](0005-git-automation-and-ai-context.md)).
 - `src/providers/` — infrastructure layer. One module per remote platform
   (`github/`, `gitlab/`), each implementing `IProjectProvider`. Owns
   authentication, HTTP/GraphQL calls, and mapping the platform's wire

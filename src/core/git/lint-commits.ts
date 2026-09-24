@@ -2,6 +2,7 @@ import { extractIssueNumberFromCommitMessage } from "./commit-issue-ref";
 import {
   buildCommitMessage,
   COMMIT_TYPES,
+  GITMOJI_PATTERN_SOURCE,
   validateCommitMessage,
   type CommitType,
 } from "./commit-message";
@@ -53,9 +54,11 @@ function inferType(subject: string): CommitType {
 }
 
 /** Strips a leading `type(scope):`/`type:` and/or gitmoji token, if present, to recover a bare description. */
+const GITMOJI_PREFIX_PATTERN = new RegExp(`^(:[a-z0-9_+-]+:|${GITMOJI_PATTERN_SOURCE})\\s*`, "u");
+
 function stripKnownPrefix(subject: string): string {
   const withoutType = subject.replace(/^[a-zA-Z]+(\([\w./-]+\))?:\s*/, "");
-  const withoutGitmoji = withoutType.replace(/^(:[a-z0-9_+-]+:|\p{Extended_Pictographic})\s*/u, "");
+  const withoutGitmoji = withoutType.replace(GITMOJI_PREFIX_PATTERN, "");
   return withoutGitmoji.trim();
 }
 

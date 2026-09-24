@@ -39,6 +39,7 @@ import { buildPrBody, buildPrTitle, type CommitRef } from "./core/git/pr-body";
 import { formatIssueContext } from "./core/ai/issue-context";
 import { formatMilestoneContext } from "./core/ai/milestone-context";
 import { replaceManagedSection } from "./core/ai/managed-section";
+import { resolveSafeRelativeSegments } from "./core/workspace/safe-relative-path";
 import type { IMilestone } from "./core/models/milestone.model";
 
 function secretKeyFor(provider: ProviderKind): string {
@@ -380,6 +381,7 @@ async function buildController(
   const { provider, currentUser } = await connectRepository(context, providerKind, repository);
   activeFolderPath = folderPath;
   activeProvider = provider;
+  activeProviderKind = providerKind;
 
   const config = vscode.workspace.getConfiguration("remoteProjectManager");
   const autoBranchEnabled = config.get<boolean>("autoBranchOnInProgress", true);
@@ -464,9 +466,10 @@ async function buildController(
 /** The single open panel and its controller, if any — see {@link openPanel}. */
 let activePanel: vscode.WebviewPanel | undefined;
 let activeController: PanelController | undefined;
-/** The workspace folder and connected provider backing `activeController`, if any (see {@link buildController}). */
+/** The workspace folder, connected provider, and provider kind backing `activeController`, if any (see {@link buildController}). */
 let activeFolderPath: string | undefined;
 let activeProvider: IProjectProvider | undefined;
+let activeProviderKind: ProviderKind | undefined;
 
 /** A deferred UI action to apply once the panel (existing or freshly built) has a ready controller. */
 type PendingPanelAction =
@@ -505,7 +508,37 @@ function applyPendingAction(
  * ready — used by the sidebar tree's click-through (#25) and the
  * Command Palette entries (#35).
  */
+/**
+ * Serializes {@link openPanelImpl} calls: `activePanel`/`activeController`
+ * aren't assigned until after an `await resolveRepository()` (and, on
+ * the "resolved" path, an `await buildController()`), so two commands
+ * that both call `openPanel` in quick succession (e.g. a fast
+ * double-click on a sidebar tree item, or the Command Palette racing a
+ * tree click) would otherwise both see no active panel yet and each
+ * build their own — duplicate token prompts/API calls, and whichever
+ * finishes last silently wins `activePanel`/`activeProvider`, leaving
+ * them possibly out of sync with each other. A caller that arrives
+ * while another call is in flight waits for it, then re-checks (via the
+ * recursive call) instead of racing a second `buildController`.
+ */
+let openPanelInFlight: Promise<void> | undefined;
+
 async function openPanel(
+  context: vscode.ExtensionContext,
+  pendingAction?: PendingPanelAction,
+): Promise<void> {
+  if (openPanelInFlight) {
+    await openPanelInFlight;
+    return openPanel(context, pendingAction);
+  }
+  const run = openPanelImpl(context, pendingAction);
+  openPanelInFlight = run.finally(() => {
+    openPanelInFlight = undefined;
+  });
+  return run;
+}
+
+async function openPanelImpl(
   context: vscode.ExtensionContext,
   pendingAction?: PendingPanelAction,
 ): Promise<void> {
@@ -534,6 +567,7 @@ async function openPanel(
       activeController = undefined;
       activeFolderPath = undefined;
       activeProvider = undefined;
+      activeProviderKind = undefined;
     }
   });
 
@@ -719,6 +753,15 @@ async function signOutGitLab(
 ): Promise<void> {
   await context.secrets.delete(secretKeyFor("gitlab"));
   treeDataProvider.invalidateConnection();
+  // The AI-context/git-automation commands (getActiveConnection) reuse
+  // activeProvider with no freshness check — clear it too so they
+  // re-resolve and re-prompt for a token instead of silently reusing a
+  // provider built with the now-deleted one.
+  if (activeProviderKind === "gitlab") {
+    activeProvider = undefined;
+    activeFolderPath = undefined;
+    activeProviderKind = undefined;
+  }
   void vscode.window.showInformationMessage(
     "Signed out of GitLab. You'll be prompted for a new token next time the panel connects to a GitLab repository.",
   );
@@ -796,8 +839,11 @@ async function getScmInputBox(cwd: string): Promise<{ value: string } | undefine
   }
   const exports = extension.isActive ? extension.exports : await extension.activate();
   const api = exports.getAPI(1);
-  const repository =
-    api.repositories.find((candidate) => candidate.rootUri.fsPath === cwd) ?? api.repositories[0];
+  // No `?? api.repositories[0]` fallback: in a multi-root workspace with
+  // several git repositories, falling back to "whichever one the git
+  // extension found first" would silently write the composed message
+  // into an unrelated repo's input box instead of the clipboard.
+  const repository = api.repositories.find((candidate) => candidate.rootUri.fsPath === cwd);
   return repository?.inputBox;
 }
 
@@ -1093,18 +1139,18 @@ async function createPrFromIssue(context: vscode.ExtensionContext): Promise<void
 
   let defaultBranch: string;
   let currentBranch: string;
+  let commits: CommitRef[];
   try {
     defaultBranch = await gitService.getDefaultBranch(cwd);
     currentBranch = await gitService.getCurrentBranch(cwd);
+    const log = await gitService.log(cwd, `origin/${defaultBranch}..HEAD`);
+    commits = log.map((entry) => ({ hash: entry.hash, message: entry.message }));
   } catch (error) {
     void vscode.window.showErrorMessage(
-      `Could not resolve branches: ${error instanceof Error ? error.message : String(error)}`,
+      `Could not resolve branches or commits: ${error instanceof Error ? error.message : String(error)}`,
     );
     return;
   }
-
-  const log = await gitService.log(cwd, `origin/${defaultBranch}..HEAD`);
-  const commits: CommitRef[] = log.map((entry) => ({ hash: entry.hash, message: entry.message }));
 
   const title = buildPrTitle(issue);
   const body = buildPrBody(issue, milestone, commits);
@@ -1297,7 +1343,14 @@ async function exportMilestoneContext(context: vscode.ExtensionContext): Promise
   const relativePath =
     config.get<string>("aiContextFile", ".github/copilot-instructions.md") ||
     ".github/copilot-instructions.md";
-  const fileUri = vscode.Uri.joinPath(vscode.Uri.file(cwd), ...relativePath.split("/"));
+  const safeSegments = resolveSafeRelativeSegments(relativePath);
+  if (!safeSegments) {
+    void vscode.window.showErrorMessage(
+      `'remoteProjectManager.aiContextFile' ("${relativePath}") escapes the workspace folder and was rejected.`,
+    );
+    return;
+  }
+  const fileUri = vscode.Uri.joinPath(vscode.Uri.file(cwd), ...safeSegments);
 
   let existing = "";
   try {
