@@ -4,6 +4,13 @@ export interface GitStatusSummary {
   readonly isDirty: boolean;
 }
 
+/** A single commit as read from `git log`. */
+export interface GitLogEntry {
+  readonly hash: string;
+  /** Full commit message (subject + body), trailers included. */
+  readonly message: string;
+}
+
 /**
  * Abstract contract for the git operations this extension needs:
  * detecting a repository's remote (for multi-root workspace resolution)
@@ -35,4 +42,14 @@ export interface IGitService {
 
   /** Validates `branchName` against git's ref-name rules. */
   isValidBranchName(branchName: string): Promise<boolean>;
+
+  /** Returns the currently checked-out branch name. */
+  getCurrentBranch(cwd: string): Promise<string>;
+
+  /**
+   * Lists commits reachable from `range` (a git revision range, e.g.
+   * `"origin/main..HEAD"`), most recent first. Defaults to `HEAD` alone
+   * when `range` is omitted.
+   */
+  log(cwd: string, range?: string): Promise<GitLogEntry[]>;
 }

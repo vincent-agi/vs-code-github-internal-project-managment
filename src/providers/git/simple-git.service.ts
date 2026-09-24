@@ -1,6 +1,13 @@
 import simpleGit from "simple-git";
-import type { GitStatusSummary, IGitService } from "../../core/git/git-service.interface";
+import type {
+  GitLogEntry,
+  GitStatusSummary,
+  IGitService,
+} from "../../core/git/git-service.interface";
 import { parseSymbolicRefBranch } from "../../core/git/parse-symbolic-ref";
+
+const LOG_FIELD_SEP = "\x1f";
+const LOG_RECORD_SEP = "\x1e";
 
 const DEFAULT_BRANCH_CANDIDATES = ["main", "master", "devel"];
 
@@ -82,5 +89,29 @@ export class SimpleGitService implements IGitService {
     } catch {
       return false;
     }
+  }
+
+  async getCurrentBranch(cwd: string): Promise<string> {
+    const branch = await simpleGit(cwd).raw(["rev-parse", "--abbrev-ref", "HEAD"]);
+    return branch.trim();
+  }
+
+  async log(cwd: string, range?: string): Promise<GitLogEntry[]> {
+    const raw = await simpleGit(cwd).raw([
+      "log",
+      `--pretty=format:%H${LOG_FIELD_SEP}%B${LOG_RECORD_SEP}`,
+      ...(range ? [range] : []),
+    ]);
+    return raw
+      .split(LOG_RECORD_SEP)
+      .map((record) => record.replace(/^\n/, ""))
+      .filter((record) => record.trim().length > 0)
+      .map((record) => {
+        const separatorIndex = record.indexOf(LOG_FIELD_SEP);
+        return {
+          hash: record.slice(0, separatorIndex),
+          message: record.slice(separatorIndex + 1).replace(/\n+$/, ""),
+        };
+      });
   }
 }
