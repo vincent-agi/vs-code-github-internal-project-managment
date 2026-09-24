@@ -29,7 +29,11 @@ export interface GitlabClient {
   Issues: {
     all(params: { projectId: string; scope: "all" }): Promise<readonly RawGitlabIssue[]>;
     show(projectId: string, issueIid: number): Promise<RawGitlabIssue>;
-    create(projectId: string, title: string, options: Record<string, unknown>): Promise<RawGitlabIssue>;
+    create(
+      projectId: string,
+      title: string,
+      options: Record<string, unknown>,
+    ): Promise<RawGitlabIssue>;
     edit(
       projectId: string,
       issueIid: number,
@@ -128,7 +132,9 @@ export class GitlabProvider implements IProjectProvider {
    * elsewhere in this codebase). A username with no matching member is
    * silently dropped rather than failing the whole request.
    */
-  private async resolveAssigneeIds(usernames: readonly string[] | undefined): Promise<number[] | undefined> {
+  private async resolveAssigneeIds(
+    usernames: readonly string[] | undefined,
+  ): Promise<number[] | undefined> {
     if (usernames === undefined) {
       return undefined;
     }
@@ -136,7 +142,9 @@ export class GitlabProvider implements IProjectProvider {
       return [];
     }
     const members = await this.client.ProjectMembers.all(this.projectPath);
-    const idByUsername = new Map(members.map((member) => [member.username.toLowerCase(), member.id]));
+    const idByUsername = new Map(
+      members.map((member) => [member.username.toLowerCase(), member.id]),
+    );
     return usernames
       .map((username) => idByUsername.get(username.toLowerCase()))
       .filter((id): id is number => id !== undefined);
