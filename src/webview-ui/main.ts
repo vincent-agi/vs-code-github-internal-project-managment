@@ -657,10 +657,12 @@ byId<HTMLButtonElement>("tab-issues").addEventListener("click", () => {
   issueLabelFilter = null;
   issueAssigneeFilter = null;
   issueStateFilter = "all";
+  issueSearchQuery = "";
   issueListPageSize = LIST_PAGE_SIZE;
   byId<HTMLSelectElement>("issue-label-filter").value = "";
   byId<HTMLSelectElement>("issue-assignee-filter").value = "";
   byId<HTMLSelectElement>("issue-state-filter").value = "all";
+  byId<HTMLInputElement>("issue-search").value = "";
   setActiveTab("issues");
   renderIssueList();
 });
