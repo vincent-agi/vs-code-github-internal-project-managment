@@ -58,7 +58,10 @@ export interface GitlabClient {
     all(projectId: string): Promise<readonly { name: string }[]>;
   };
   ProjectMembers: {
-    all(projectId: string): Promise<readonly { id: number; username: string }[]>;
+    all(
+      projectId: string,
+      options?: { includeInherited?: boolean },
+    ): Promise<readonly { id: number; username: string }[]>;
   };
   Projects: {
     show(projectId: string): Promise<{
@@ -141,7 +144,13 @@ export class GitlabProvider implements IProjectProvider {
     if (usernames.length === 0) {
       return [];
     }
-    const members = await this.client.ProjectMembers.all(this.projectPath);
+    // includeInherited: GitLab's plain /members endpoint (gitbeaker's
+    // default) only lists direct members; access granted via a parent
+    // group/subgroup — the common pattern on larger projects — needs
+    // /members/all instead.
+    const members = await this.client.ProjectMembers.all(this.projectPath, {
+      includeInherited: true,
+    });
     const idByUsername = new Map(
       members.map((member) => [member.username.toLowerCase(), member.id]),
     );
@@ -210,7 +219,9 @@ export class GitlabProvider implements IProjectProvider {
   }
 
   async listAssignableUsers(_options?: FetchOptions): Promise<readonly string[]> {
-    const members = await this.client.ProjectMembers.all(this.projectPath);
+    const members = await this.client.ProjectMembers.all(this.projectPath, {
+      includeInherited: true,
+    });
     return members.map((member) => member.username);
   }
 }
