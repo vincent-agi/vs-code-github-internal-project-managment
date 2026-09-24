@@ -124,6 +124,7 @@ let selectedIssueId: string | null = null;
 let selectedMilestoneId: string | null = null;
 let issueMilestoneFilter: string | null = null;
 let issueSearchQuery = "";
+let issueLabelFilter: string | null = null;
 let showNewIssueForm = false;
 let showNewMilestoneForm = false;
 let lastState: StateSnapshot | null = null;
@@ -203,6 +204,9 @@ function renderIssueList(): void {
       return false;
     }
     if (query && !candidate.title.toLowerCase().includes(query) && !candidate.body.toLowerCase().includes(query)) {
+      return false;
+    }
+    if (issueLabelFilter && !candidate.labels.includes(issueLabelFilter)) {
       return false;
     }
     return true;
@@ -527,6 +531,18 @@ function renderRepositoryPicker(options: RepositoryOptionView[]): void {
   }
 }
 
+function renderIssueLabelFilterOptions(): void {
+  const select = byId<HTMLSelectElement>("issue-label-filter");
+  const previousValue = select.value;
+  select.innerHTML =
+    `<option value="">All labels</option>` +
+    currentAvailableLabels
+      .map((label) => `<option value="${escapeAttr(label)}">${escapeHtml(label)}</option>`)
+      .join("");
+  select.value = currentAvailableLabels.includes(previousValue) ? previousValue : "";
+  issueLabelFilter = select.value || null;
+}
+
 function setActiveTab(tab: "issues" | "milestones"): void {
   byId<HTMLButtonElement>("tab-issues").classList.toggle("active", tab === "issues");
   byId<HTMLButtonElement>("tab-milestones").classList.toggle("active", tab === "milestones");
@@ -536,11 +552,17 @@ function setActiveTab(tab: "issues" | "milestones"): void {
 
 byId<HTMLButtonElement>("tab-issues").addEventListener("click", () => {
   issueMilestoneFilter = null;
+  issueLabelFilter = null;
+  byId<HTMLSelectElement>("issue-label-filter").value = "";
   setActiveTab("issues");
   renderIssueList();
 });
 byId<HTMLInputElement>("issue-search").addEventListener("input", (event) => {
   issueSearchQuery = (event.target as HTMLInputElement).value;
+  renderIssueList();
+});
+byId<HTMLSelectElement>("issue-label-filter").addEventListener("change", (event) => {
+  issueLabelFilter = (event.target as HTMLSelectElement).value || null;
   renderIssueList();
 });
 byId<HTMLButtonElement>("tab-milestones").addEventListener("click", () => setActiveTab("milestones"));
@@ -586,6 +608,7 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
     currentUser = message.currentUser;
     currentAvailableLabels = message.availableLabels;
     currentAvailableAssignableUsers = message.availableAssignableUsers;
+    renderIssueLabelFilterOptions();
     byId<HTMLButtonElement>("issue-new").disabled = !currentCapabilities.canWriteIssues;
     byId<HTMLButtonElement>("milestone-new").disabled = !currentCapabilities.canWriteMilestones;
     renderIssueList();

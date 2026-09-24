@@ -41,6 +41,7 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
     <div class="list-column">
       <div class="list-toolbar">
         <input id="issue-search" type="text" placeholder="Search issues…" />
+        <select id="issue-label-filter" title="Filter by label"><option value="">All labels</option></select>
         <button id="issue-new" class="tab" type="button" disabled>+ New Issue</button>
       </div>
       <div class="list" id="issue-list"></div>

@@ -107,6 +107,16 @@ body {
   font-family: inherit;
 }
 
+.list-toolbar select {
+  box-sizing: border-box;
+  max-width: 40%;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, transparent);
+  padding: 4px 6px;
+  font-family: inherit;
+}
+
 .list-column .list {
   width: auto;
   flex: 1;
