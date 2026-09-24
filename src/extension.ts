@@ -523,9 +523,16 @@ async function openPanel(
     panel.webview.onDidReceiveMessage((message: InboundMessage) => {
       void controller.handleMessage(message);
     });
-    void controller.handleMessage({ type: "requestState" });
     if (pendingAction) {
+      // A "refresh" pendingAction already sends its own requestState
+      // (forceRefresh: true) below — sending the plain one first would
+      // fire two concurrent full state fetches for one user action.
+      if (pendingAction.kind !== "refresh") {
+        void controller.handleMessage({ type: "requestState" });
+      }
       applyPendingAction(panel, controller, pendingAction);
+    } else {
+      void controller.handleMessage({ type: "requestState" });
     }
     return;
   }
@@ -568,9 +575,13 @@ async function openPanel(
         return;
       }
       activeController = controller;
-      void controller.handleMessage({ type: "requestState" });
       if (pendingAction) {
+        if (pendingAction.kind !== "refresh") {
+          void controller.handleMessage({ type: "requestState" });
+        }
         applyPendingAction(panel, controller, pendingAction);
+      } else {
+        void controller.handleMessage({ type: "requestState" });
       }
     }
   });
