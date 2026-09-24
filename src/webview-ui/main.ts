@@ -126,6 +126,8 @@ let issueMilestoneFilter: string | null = null;
 let issueSearchQuery = "";
 let issueLabelFilter: string | null = null;
 let issueAssigneeFilter: string | null = null;
+let issueStateFilter: "all" | "open" | "closed" = "all";
+let milestoneStateFilter: "all" | "open" | "closed" = "all";
 let showNewIssueForm = false;
 let showNewMilestoneForm = false;
 let lastState: StateSnapshot | null = null;
@@ -215,6 +217,9 @@ function renderIssueList(): void {
       if (!wanted || !candidate.assignees.includes(wanted)) {
         return false;
       }
+    }
+    if (issueStateFilter !== "all" && candidate.state !== issueStateFilter) {
+      return false;
     }
     return true;
   });
@@ -399,7 +404,11 @@ function renderIssueDetail(): void {
 function renderMilestoneList(): void {
   const list = byId<HTMLDivElement>("milestone-list");
   list.innerHTML = "";
-  for (const milestone of currentMilestones) {
+  const milestones =
+    milestoneStateFilter === "all"
+      ? currentMilestones
+      : currentMilestones.filter((candidate) => candidate.state === milestoneStateFilter);
+  for (const milestone of milestones) {
     const item = document.createElement("div");
     item.className = "item" + (milestone.id === selectedMilestoneId ? " selected" : "");
     const stateClass = milestone.state === "closed" ? " state-closed" : "";
@@ -572,8 +581,10 @@ byId<HTMLButtonElement>("tab-issues").addEventListener("click", () => {
   issueMilestoneFilter = null;
   issueLabelFilter = null;
   issueAssigneeFilter = null;
+  issueStateFilter = "all";
   byId<HTMLSelectElement>("issue-label-filter").value = "";
   byId<HTMLSelectElement>("issue-assignee-filter").value = "";
+  byId<HTMLSelectElement>("issue-state-filter").value = "all";
   setActiveTab("issues");
   renderIssueList();
 });
@@ -588,6 +599,14 @@ byId<HTMLSelectElement>("issue-label-filter").addEventListener("change", (event)
 byId<HTMLSelectElement>("issue-assignee-filter").addEventListener("change", (event) => {
   issueAssigneeFilter = (event.target as HTMLSelectElement).value || null;
   renderIssueList();
+});
+byId<HTMLSelectElement>("issue-state-filter").addEventListener("change", (event) => {
+  issueStateFilter = (event.target as HTMLSelectElement).value as "all" | "open" | "closed";
+  renderIssueList();
+});
+byId<HTMLSelectElement>("milestone-state-filter").addEventListener("change", (event) => {
+  milestoneStateFilter = (event.target as HTMLSelectElement).value as "all" | "open" | "closed";
+  renderMilestoneList();
 });
 byId<HTMLButtonElement>("tab-milestones").addEventListener("click", () => setActiveTab("milestones"));
 byId<HTMLButtonElement>("issue-new").addEventListener("click", () => {

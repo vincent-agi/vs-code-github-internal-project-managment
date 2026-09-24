@@ -46,6 +46,11 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
           <option value="">All assignees</option>
           <option value="@me">Assigned to me</option>
         </select>
+        <select id="issue-state-filter" title="Filter by state">
+          <option value="all">All states</option>
+          <option value="open">Open</option>
+          <option value="closed">Closed</option>
+        </select>
         <button id="issue-new" class="tab" type="button" disabled>+ New Issue</button>
       </div>
       <div class="list" id="issue-list"></div>
@@ -55,7 +60,14 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
 
   <div id="view-milestones" class="view" hidden>
     <div class="list-column">
-      <div class="list-toolbar"><button id="milestone-new" class="tab" type="button" disabled>+ New Milestone</button></div>
+      <div class="list-toolbar">
+        <select id="milestone-state-filter" title="Filter by state">
+          <option value="all">All states</option>
+          <option value="open">Open</option>
+          <option value="closed">Closed</option>
+        </select>
+        <button id="milestone-new" class="tab" type="button" disabled>+ New Milestone</button>
+      </div>
       <div class="list" id="milestone-list"></div>
     </div>
     <div class="detail" id="milestone-detail"></div>
