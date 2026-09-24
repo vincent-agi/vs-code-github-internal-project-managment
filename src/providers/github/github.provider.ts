@@ -40,6 +40,12 @@ export interface GithubClient {
     }>;
     createMilestone(params: Record<string, unknown>): Promise<{ data: RawGithubMilestone }>;
     updateMilestone(params: Record<string, unknown>): Promise<{ data: RawGithubMilestone }>;
+    listLabelsForRepo(params: { owner: string; repo: string; per_page: number; page: number }): Promise<{
+      data: readonly { name: string }[];
+    }>;
+    listAssignees(params: { owner: string; repo: string; per_page: number; page: number }): Promise<{
+      data: readonly { login: string }[];
+    }>;
   };
   repos: {
     get(params: { owner: string; repo: string }): Promise<{
@@ -200,5 +206,40 @@ export class GithubProvider implements IProjectProvider {
       due_on: patch.dueOn ?? undefined,
     });
     return mapGithubMilestoneToDomain(data);
+  }
+
+  /**
+   * Collects `name`/`login` across every page of a paginated GitHub REST
+   * list endpoint (`per_page: 100`), since Octokit's plain REST calls do
+   * not auto-paginate.
+   */
+  private async collectAllPages<T>(
+    fetchPage: (page: number) => Promise<{ data: readonly T[] }>,
+    extract: (item: T) => string,
+  ): Promise<readonly string[]> {
+    const names: string[] = [];
+    let page = 1;
+    for (;;) {
+      const { data } = await fetchPage(page);
+      names.push(...data.map(extract));
+      if (data.length < 100) {
+        return names;
+      }
+      page += 1;
+    }
+  }
+
+  async listLabels(_options?: FetchOptions): Promise<readonly string[]> {
+    return this.collectAllPages(
+      (page) => this.client.issues.listLabelsForRepo({ owner: this.owner, repo: this.repo, per_page: 100, page }),
+      (label) => label.name,
+    );
+  }
+
+  async listAssignableUsers(_options?: FetchOptions): Promise<readonly string[]> {
+    return this.collectAllPages(
+      (page) => this.client.issues.listAssignees({ owner: this.owner, repo: this.repo, per_page: 100, page }),
+      (user) => user.login,
+    );
   }
 }

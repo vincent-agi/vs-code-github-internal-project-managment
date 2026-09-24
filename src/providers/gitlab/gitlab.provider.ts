@@ -38,6 +38,12 @@ export interface GitlabClient {
     create(projectId: string, options: Record<string, unknown>): Promise<RawGitlabMilestone>;
     edit(projectId: string, milestoneId: number, options: Record<string, unknown>): Promise<RawGitlabMilestone>;
   };
+  Labels: {
+    all(projectId: string): Promise<readonly { name: string }[]>;
+  };
+  ProjectMembers: {
+    all(projectId: string): Promise<readonly { username: string }[]>;
+  };
   Projects: {
     show(projectId: string): Promise<{
       permissions?: {
@@ -153,5 +159,15 @@ export class GitlabProvider implements IProjectProvider {
       state_event: patch.state ? (patch.state === "closed" ? "close" : "activate") : undefined,
     });
     return mapGitlabMilestoneToDomain(raw);
+  }
+
+  async listLabels(_options?: FetchOptions): Promise<readonly string[]> {
+    const labels = await this.client.Labels.all(this.projectPath);
+    return labels.map((label) => label.name);
+  }
+
+  async listAssignableUsers(_options?: FetchOptions): Promise<readonly string[]> {
+    const members = await this.client.ProjectMembers.all(this.projectPath);
+    return members.map((member) => member.username);
   }
 }

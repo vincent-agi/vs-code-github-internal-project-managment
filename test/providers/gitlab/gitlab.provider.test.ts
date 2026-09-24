@@ -15,6 +15,12 @@ function makeClient(overrides: Partial<GitlabClient> = {}): GitlabClient {
       create: vi.fn(),
       edit: vi.fn(),
     },
+    Labels: {
+      all: vi.fn().mockResolvedValue([]),
+    },
+    ProjectMembers: {
+      all: vi.fn().mockResolvedValue([]),
+    },
     Projects: {
       show: vi.fn(),
     },
@@ -190,6 +196,32 @@ describe("GitlabProvider.updateMilestone", () => {
       expect.objectContaining({ state_event: "close" }),
     );
     expect(milestone.state).toBe("closed");
+  });
+});
+
+describe("GitlabProvider.listLabels", () => {
+  it("returns label names", async () => {
+    const all = vi.fn().mockResolvedValue([{ name: "bug" }, { name: "docs" }]);
+    const client = makeClient({ Labels: { all } as unknown as GitlabClient["Labels"] });
+    const provider = new GitlabProvider(client, "acme/widgets");
+
+    const labels = await provider.listLabels();
+
+    expect(all).toHaveBeenCalledWith("acme/widgets");
+    expect(labels).toEqual(["bug", "docs"]);
+  });
+});
+
+describe("GitlabProvider.listAssignableUsers", () => {
+  it("returns member usernames", async () => {
+    const all = vi.fn().mockResolvedValue([{ username: "octocat" }]);
+    const client = makeClient({ ProjectMembers: { all } as unknown as GitlabClient["ProjectMembers"] });
+    const provider = new GitlabProvider(client, "acme/widgets");
+
+    const users = await provider.listAssignableUsers();
+
+    expect(all).toHaveBeenCalledWith("acme/widgets");
+    expect(users).toEqual(["octocat"]);
   });
 });
 

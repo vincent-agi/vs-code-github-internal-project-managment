@@ -61,6 +61,8 @@ function makeInner(): IProjectProvider {
     getMilestone: vi.fn().mockResolvedValue(milestone),
     createMilestone: vi.fn().mockResolvedValue(milestone),
     updateMilestone: vi.fn().mockResolvedValue(milestone),
+    listLabels: vi.fn().mockResolvedValue(["bug"]),
+    listAssignableUsers: vi.fn().mockResolvedValue(["octocat"]),
   };
 }
 
@@ -109,6 +111,21 @@ describe("CachingProjectProvider.listMilestones and getCapabilities", () => {
 
     expect(inner.listMilestones).toHaveBeenCalledTimes(1);
     expect(inner.getCapabilities).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("CachingProjectProvider.listLabels and listAssignableUsers", () => {
+  it("also cache their results independently", async () => {
+    const inner = makeInner();
+    const provider = new CachingProjectProvider(inner, 60_000);
+
+    await provider.listLabels();
+    await provider.listLabels();
+    await provider.listAssignableUsers();
+    await provider.listAssignableUsers();
+
+    expect(inner.listLabels).toHaveBeenCalledTimes(1);
+    expect(inner.listAssignableUsers).toHaveBeenCalledTimes(1);
   });
 });
 

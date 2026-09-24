@@ -46,6 +46,8 @@ function makeProvider(capabilities: ProviderCapabilities): IProjectProvider {
     getMilestone: vi.fn(),
     createMilestone: vi.fn().mockResolvedValue(milestone),
     updateMilestone: vi.fn().mockResolvedValue({ ...milestone, state: "closed" }),
+    listLabels: vi.fn().mockResolvedValue(["bug"]),
+    listAssignableUsers: vi.fn().mockResolvedValue(["octocat"]),
   };
 }
 

@@ -11,6 +11,8 @@ function makeClient(overrides: Partial<GithubClient> = {}): GithubClient {
       listMilestones: vi.fn().mockResolvedValue({ data: [] }),
       createMilestone: vi.fn(),
       updateMilestone: vi.fn(),
+      listLabelsForRepo: vi.fn().mockResolvedValue({ data: [] }),
+      listAssignees: vi.fn().mockResolvedValue({ data: [] }),
     },
     repos: {
       get: vi.fn(),
@@ -187,6 +189,46 @@ describe("GithubProvider.updateMilestone", () => {
       expect.objectContaining({ owner: "acme", repo: "widgets", milestone_number: 3, state: "closed" }),
     );
     expect(milestone.state).toBe("closed");
+  });
+});
+
+describe("GithubProvider.listLabels", () => {
+  it("returns label names", async () => {
+    const listLabelsForRepo = vi.fn().mockResolvedValue({ data: [{ name: "bug" }, { name: "docs" }] });
+    const client = makeClient({ issues: { listLabelsForRepo } as unknown as GithubClient["issues"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const labels = await provider.listLabels();
+
+    expect(labels).toEqual(["bug", "docs"]);
+  });
+
+  it("paginates through every page", async () => {
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({ name: `label-${i}` }));
+    const listLabelsForRepo = vi
+      .fn()
+      .mockResolvedValueOnce({ data: fullPage })
+      .mockResolvedValueOnce({ data: [{ name: "last" }] });
+    const client = makeClient({ issues: { listLabelsForRepo } as unknown as GithubClient["issues"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const labels = await provider.listLabels();
+
+    expect(listLabelsForRepo).toHaveBeenCalledTimes(2);
+    expect(labels).toHaveLength(101);
+    expect(labels[100]).toBe("last");
+  });
+});
+
+describe("GithubProvider.listAssignableUsers", () => {
+  it("returns assignee logins", async () => {
+    const listAssignees = vi.fn().mockResolvedValue({ data: [{ login: "octocat" }] });
+    const client = makeClient({ issues: { listAssignees } as unknown as GithubClient["issues"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const users = await provider.listAssignableUsers();
+
+    expect(users).toEqual(["octocat"]);
   });
 });
 

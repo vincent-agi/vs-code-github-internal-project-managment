@@ -82,6 +82,12 @@ export interface IProjectProvider {
   getMilestone(id: string): Promise<IMilestone>;
   createMilestone(input: CreateMilestoneInput): Promise<IMilestone>;
   updateMilestone(id: string, patch: UpdateMilestoneInput): Promise<IMilestone>;
+
+  /** Label names available on this repository, for a labels picker. */
+  listLabels(options?: FetchOptions): Promise<readonly string[]>;
+
+  /** Usernames that can be assigned to an issue on this repository. */
+  listAssignableUsers(options?: FetchOptions): Promise<readonly string[]>;
 }
 
 /**

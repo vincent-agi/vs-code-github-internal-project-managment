@@ -15,6 +15,8 @@ import type {
 const ISSUES_KEY = "issues";
 const MILESTONES_KEY = "milestones";
 const CAPABILITIES_KEY = "capabilities";
+const LABELS_KEY = "labels";
+const ASSIGNABLE_USERS_KEY = "assignableUsers";
 
 /**
  * Decorates any {@link IProjectProvider} with a short TTL cache over its
@@ -96,5 +98,13 @@ export class CachingProjectProvider implements IProjectProvider {
     const result = await this.inner.updateMilestone(id, patch);
     this.cache.invalidate(MILESTONES_KEY);
     return result;
+  }
+
+  listLabels(options?: FetchOptions): Promise<readonly string[]> {
+    return this.cached(LABELS_KEY, options, () => this.inner.listLabels());
+  }
+
+  listAssignableUsers(options?: FetchOptions): Promise<readonly string[]> {
+    return this.cached(ASSIGNABLE_USERS_KEY, options, () => this.inner.listAssignableUsers());
   }
 }
