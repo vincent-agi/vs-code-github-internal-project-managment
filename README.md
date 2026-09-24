@@ -93,3 +93,5 @@ New to the extension? Start with [Getting Started](GETTING_STARTED.md). Deep-div
 - [04 — Troubleshooting and FAQ](docs/functionals/04-troubleshooting-and-faq.md)
 
 Architectural Decision Records live in [`docs/adr/`](docs/adr/).
+
+Want to contribute code? See [CONTRIBUTING.md](CONTRIBUTING.md) for the dev workflow.
