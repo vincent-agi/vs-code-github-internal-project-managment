@@ -27,7 +27,7 @@ type RawGithubPullRequestIssue = RawGithubIssue & { pull_request?: unknown };
  */
 export interface GithubClient {
   issues: {
-    listForRepo(params: { owner: string; repo: string; state: "all" }): Promise<{
+    listForRepo(params: { owner: string; repo: string; state: "all"; per_page: number; page: number }): Promise<{
       data: readonly RawGithubPullRequestIssue[];
     }>;
     get(params: { owner: string; repo: string; issue_number: number }): Promise<{
@@ -35,7 +35,7 @@ export interface GithubClient {
     }>;
     create(params: Record<string, unknown>): Promise<{ data: RawGithubIssue }>;
     update(params: Record<string, unknown>): Promise<{ data: RawGithubIssue }>;
-    listMilestones(params: { owner: string; repo: string; state: "all" }): Promise<{
+    listMilestones(params: { owner: string; repo: string; state: "all"; per_page: number; page: number }): Promise<{
       data: readonly RawGithubMilestone[];
     }>;
     createMilestone(params: Record<string, unknown>): Promise<{ data: RawGithubMilestone }>;
@@ -85,13 +85,34 @@ export class GithubProvider implements IProjectProvider {
     return Number(match[1]);
   }
 
+  /**
+   * Collects every item across all pages of a paginated GitHub REST list
+   * endpoint (`per_page: 100`). Octokit's plain REST calls (as opposed to
+   * `octokit.paginate`) only ever return a single page, so without this
+   * any list past the first 100 items would silently go missing.
+   */
+  private async paginateAll<T>(fetchPage: (page: number) => Promise<{ data: readonly T[] }>): Promise<T[]> {
+    const items: T[] = [];
+    let page = 1;
+    for (;;) {
+      const { data } = await fetchPage(page);
+      items.push(...data);
+      if (data.length < 100) {
+        return items;
+      }
+      page += 1;
+    }
+  }
+
+  private fetchAllRawMilestones(): Promise<RawGithubMilestone[]> {
+    return this.paginateAll((page) =>
+      this.client.issues.listMilestones({ owner: this.owner, repo: this.repo, state: "all", per_page: 100, page }),
+    );
+  }
+
   private async findRawMilestoneById(id: string): Promise<RawGithubMilestone> {
-    const { data } = await this.client.issues.listMilestones({
-      owner: this.owner,
-      repo: this.repo,
-      state: "all",
-    });
-    const found = data.find((milestone) => String(milestone.id) === id);
+    const milestones = await this.fetchAllRawMilestones();
+    const found = milestones.find((milestone) => String(milestone.id) === id);
     if (!found) {
       throw new Error(`No milestone found with id '${id}' in ${this.repoFullName}`);
     }
@@ -116,12 +137,10 @@ export class GithubProvider implements IProjectProvider {
   }
 
   async listIssues(_options?: FetchOptions): Promise<readonly IIssue[]> {
-    const { data } = await this.client.issues.listForRepo({
-      owner: this.owner,
-      repo: this.repo,
-      state: "all",
-    });
-    return data
+    const issues = await this.paginateAll((page) =>
+      this.client.issues.listForRepo({ owner: this.owner, repo: this.repo, state: "all", per_page: 100, page }),
+    );
+    return issues
       .filter((issue) => !issue.pull_request)
       .map((issue) => mapGithubIssueToDomain(issue, this.repoFullName));
   }
@@ -171,12 +190,8 @@ export class GithubProvider implements IProjectProvider {
   }
 
   async listMilestones(_options?: FetchOptions): Promise<readonly IMilestone[]> {
-    const { data } = await this.client.issues.listMilestones({
-      owner: this.owner,
-      repo: this.repo,
-      state: "all",
-    });
-    return data.map(mapGithubMilestoneToDomain);
+    const milestones = await this.fetchAllRawMilestones();
+    return milestones.map(mapGithubMilestoneToDomain);
   }
 
   async getMilestone(id: string): Promise<IMilestone> {
@@ -208,38 +223,17 @@ export class GithubProvider implements IProjectProvider {
     return mapGithubMilestoneToDomain(data);
   }
 
-  /**
-   * Collects `name`/`login` across every page of a paginated GitHub REST
-   * list endpoint (`per_page: 100`), since Octokit's plain REST calls do
-   * not auto-paginate.
-   */
-  private async collectAllPages<T>(
-    fetchPage: (page: number) => Promise<{ data: readonly T[] }>,
-    extract: (item: T) => string,
-  ): Promise<readonly string[]> {
-    const names: string[] = [];
-    let page = 1;
-    for (;;) {
-      const { data } = await fetchPage(page);
-      names.push(...data.map(extract));
-      if (data.length < 100) {
-        return names;
-      }
-      page += 1;
-    }
-  }
-
   async listLabels(_options?: FetchOptions): Promise<readonly string[]> {
-    return this.collectAllPages(
-      (page) => this.client.issues.listLabelsForRepo({ owner: this.owner, repo: this.repo, per_page: 100, page }),
-      (label) => label.name,
+    const labels = await this.paginateAll((page) =>
+      this.client.issues.listLabelsForRepo({ owner: this.owner, repo: this.repo, per_page: 100, page }),
     );
+    return labels.map((label) => label.name);
   }
 
   async listAssignableUsers(_options?: FetchOptions): Promise<readonly string[]> {
-    return this.collectAllPages(
-      (page) => this.client.issues.listAssignees({ owner: this.owner, repo: this.repo, per_page: 100, page }),
-      (user) => user.login,
+    const users = await this.paginateAll((page) =>
+      this.client.issues.listAssignees({ owner: this.owner, repo: this.repo, per_page: 100, page }),
     );
+    return users.map((user) => user.login);
   }
 }

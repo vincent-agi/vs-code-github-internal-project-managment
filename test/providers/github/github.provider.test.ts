@@ -66,6 +66,22 @@ describe("GithubProvider.listIssues", () => {
     expect(issues).toHaveLength(1);
     expect(issues[0].number).toBe(42);
   });
+
+  it("paginates through every page instead of only the first 100", async () => {
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({ ...rawIssue, number: i + 1 }));
+    const listForRepo = vi
+      .fn()
+      .mockResolvedValueOnce({ data: fullPage })
+      .mockResolvedValueOnce({ data: [{ ...rawIssue, number: 101 }] });
+    const client = makeClient({ issues: { listForRepo } as unknown as GithubClient["issues"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const issues = await provider.listIssues();
+
+    expect(listForRepo).toHaveBeenCalledTimes(2);
+    expect(issues).toHaveLength(101);
+    expect(issues[100].number).toBe(101);
+  });
 });
 
 describe("GithubProvider.getIssue", () => {
@@ -134,6 +150,21 @@ describe("GithubProvider.listMilestones", () => {
         updatedAt: "2026-01-01T00:00:00Z",
       },
     ]);
+  });
+
+  it("paginates through every page instead of only the first 100", async () => {
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({ ...rawMilestone, id: i + 1, number: i + 1 }));
+    const listMilestones = vi
+      .fn()
+      .mockResolvedValueOnce({ data: fullPage })
+      .mockResolvedValueOnce({ data: [{ ...rawMilestone, id: 101, number: 101 }] });
+    const client = makeClient({ issues: { listMilestones } as unknown as GithubClient["issues"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const milestones = await provider.listMilestones();
+
+    expect(listMilestones).toHaveBeenCalledTimes(2);
+    expect(milestones).toHaveLength(101);
   });
 });
 
