@@ -273,6 +273,7 @@ function renderIssueDetail(): void {
   const isAssignedToMe = currentUser !== null && issue.assignees.includes(currentUser.username);
   const showAssignToMe = canWrite && currentUser !== null && !isAssignedToMe;
   const labelOptions = Array.from(new Set([...currentAvailableLabels, ...issue.labels])).sort();
+  const assigneeOptions = Array.from(new Set([...currentAvailableAssignableUsers, ...issue.assignees])).sort();
   detail.innerHTML = `
     <div class="meta">
       <div class="meta-row"><span class="meta-key">Number</span><span class="meta-value">#${issue.number}</span></div>
@@ -316,6 +317,20 @@ function renderIssueDetail(): void {
       }
     </div>
 
+    <label for="issue-assignees-editor">Assignees</label>
+    <div id="issue-assignees-editor" class="checkbox-list">
+      ${
+        assigneeOptions.length > 0
+          ? assigneeOptions
+              .map(
+                (username) =>
+                  `<label><input type="checkbox" value="${escapeAttr(username)}" ${issue.assignees.includes(username) ? "checked" : ""} ${canWrite ? "" : "disabled"} /> ${escapeHtml(username)}</label>`,
+              )
+              .join("")
+          : `<span class="read-only-note">No assignable users found for this repository.</span>`
+      }
+    </div>
+
     <label for="issue-body">Body</label>
     <textarea id="issue-body" ${canWrite ? "" : "disabled"}>${escapeHtml(issue.body)}</textarea>
 
@@ -335,7 +350,10 @@ function renderIssueDetail(): void {
       const labels = Array.from(
         byId<HTMLDivElement>("issue-labels-editor").querySelectorAll<HTMLInputElement>("input[type=checkbox]:checked"),
       ).map((checkbox) => checkbox.value);
-      post({ type: "updateIssue", id: issue.id, patch: { title, state, body, labels } });
+      const assignees = Array.from(
+        byId<HTMLDivElement>("issue-assignees-editor").querySelectorAll<HTMLInputElement>("input[type=checkbox]:checked"),
+      ).map((checkbox) => checkbox.value);
+      post({ type: "updateIssue", id: issue.id, patch: { title, state, body, labels, assignees } });
     });
 
     if (showAssignToMe && currentUser !== null) {
