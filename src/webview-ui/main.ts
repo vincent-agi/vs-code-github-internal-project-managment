@@ -88,6 +88,10 @@ type InboundMessage =
       input: { title: string; body: string; milestoneId?: string | null };
     }
   | { type: "updateIssue"; id: string; patch: Partial<Pick<IssueView, "title" | "body" | "state" | "assignees">> }
+  | {
+      type: "createMilestone";
+      input: { title: string; description?: string; dueOn?: string | null };
+    }
   | { type: "updateMilestone"; id: string; patch: Partial<Pick<MilestoneView, "title" | "description" | "state">> }
   | { type: "createBranchForIssue"; id: string };
 
@@ -110,6 +114,7 @@ let selectedIssueId: string | null = null;
 let selectedMilestoneId: string | null = null;
 let issueMilestoneFilter: string | null = null;
 let showNewIssueForm = false;
+let showNewMilestoneForm = false;
 let lastState: StateSnapshot | null = null;
 
 function post(message: InboundMessage): void {
@@ -325,6 +330,7 @@ function renderMilestoneList(): void {
     item.innerHTML = `<span class="${stateClass}">${escapeHtml(milestone.title)}</span>${due}`;
     item.addEventListener("click", () => {
       selectedMilestoneId = milestone.id;
+      showNewMilestoneForm = false;
       renderMilestoneList();
       renderMilestoneDetail();
     });
@@ -332,8 +338,48 @@ function renderMilestoneList(): void {
   }
 }
 
+function renderNewMilestoneForm(): void {
+  const detail = byId<HTMLDivElement>("milestone-detail");
+  detail.innerHTML = `
+    <h3>New Milestone</h3>
+
+    <label for="new-milestone-title">Title</label>
+    <input id="new-milestone-title" type="text" />
+
+    <label for="new-milestone-description">Description</label>
+    <textarea id="new-milestone-description"></textarea>
+
+    <label for="new-milestone-due">Due date</label>
+    <input id="new-milestone-due" type="date" />
+
+    <button id="new-milestone-create" type="button">Create</button>
+    <button id="new-milestone-cancel" type="button">Cancel</button>
+  `;
+
+  byId<HTMLButtonElement>("new-milestone-cancel").addEventListener("click", () => {
+    showNewMilestoneForm = false;
+    renderMilestoneDetail();
+  });
+
+  byId<HTMLButtonElement>("new-milestone-create").addEventListener("click", () => {
+    const title = byId<HTMLInputElement>("new-milestone-title").value.trim();
+    if (!title) {
+      showError("Title is required.");
+      return;
+    }
+    const description = byId<HTMLTextAreaElement>("new-milestone-description").value;
+    const dueOn = byId<HTMLInputElement>("new-milestone-due").value || null;
+    post({ type: "createMilestone", input: { title, description, dueOn } });
+    showNewMilestoneForm = false;
+  });
+}
+
 function renderMilestoneDetail(): void {
   const detail = byId<HTMLDivElement>("milestone-detail");
+  if (showNewMilestoneForm) {
+    renderNewMilestoneForm();
+    return;
+  }
   const milestone = currentMilestones.find((candidate) => candidate.id === selectedMilestoneId);
   if (!milestone) {
     detail.innerHTML = `<p>Select a milestone to view details.</p>`;
@@ -434,6 +480,12 @@ byId<HTMLButtonElement>("issue-new").addEventListener("click", () => {
   renderIssueList();
   renderIssueDetail();
 });
+byId<HTMLButtonElement>("milestone-new").addEventListener("click", () => {
+  selectedMilestoneId = null;
+  showNewMilestoneForm = true;
+  renderMilestoneList();
+  renderMilestoneDetail();
+});
 byId<HTMLButtonElement>("refresh-button").addEventListener("click", () => {
   post({ type: "requestState", forceRefresh: true });
 });
@@ -461,6 +513,7 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
     currentCapabilities = message.capabilities;
     currentUser = message.currentUser;
     byId<HTMLButtonElement>("issue-new").disabled = !currentCapabilities.canWriteIssues;
+    byId<HTMLButtonElement>("milestone-new").disabled = !currentCapabilities.canWriteMilestones;
     renderIssueList();
     renderIssueDetail();
     renderMilestoneList();
