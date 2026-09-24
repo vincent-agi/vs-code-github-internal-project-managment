@@ -191,7 +191,7 @@ function formatDate(value: string | null): string {
     return "—";
   }
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? escapeHtml(value) : date.toLocaleString();
 }
 
 function findMilestone(milestoneId: string | null): MilestoneView | undefined {
