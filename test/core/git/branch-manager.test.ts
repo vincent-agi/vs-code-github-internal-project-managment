@@ -174,4 +174,31 @@ describe("BranchManager.createBranchForIssue error handling", () => {
 
     expect(result).toEqual({ status: "error", message: "branch already exists" });
   });
+
+  it("reports 'error' (not an unhandled rejection) when stash fails", async () => {
+    const git = makeGitService({
+      getStatus: vi.fn().mockResolvedValue({ isDirty: true }),
+      stash: vi.fn().mockRejectedValue(new Error("stash conflict")),
+    });
+    const manager = new BranchManager(git);
+
+    const result = await manager.createBranchForIssue(makeIssue(), CWD, {
+      onDirtyWorkingTree: vi.fn().mockResolvedValue("stash"),
+    });
+
+    expect(result).toEqual({ status: "error", message: "stash conflict" });
+  });
+
+  it("reports 'error' (not an unhandled rejection) when getStatus fails", async () => {
+    const git = makeGitService({
+      getStatus: vi.fn().mockRejectedValue(new Error("not a git repository")),
+    });
+    const manager = new BranchManager(git);
+
+    const result = await manager.createBranchForIssue(makeIssue(), CWD, {
+      onDirtyWorkingTree: vi.fn(),
+    });
+
+    expect(result).toEqual({ status: "error", message: "not a git repository" });
+  });
 });

@@ -30,20 +30,20 @@ export class BranchManager implements IBranchManager {
       return { status: "invalid-name", branchName };
     }
 
-    const status = await this.git.getStatus(cwd);
-    if (status.isDirty) {
-      const decision = await prompts.onDirtyWorkingTree();
-      if (decision === "cancel") {
-        return { status: "cancelled" };
-      }
-      if (decision === "stash") {
-        await this.git.stash(cwd);
-      }
-      // "force" proceeds without stashing, letting git carry uncommitted
-      // changes onto the new branch as it normally would.
-    }
-
     try {
+      const status = await this.git.getStatus(cwd);
+      if (status.isDirty) {
+        const decision = await prompts.onDirtyWorkingTree();
+        if (decision === "cancel") {
+          return { status: "cancelled" };
+        }
+        if (decision === "stash") {
+          await this.git.stash(cwd);
+        }
+        // "force" proceeds without stashing, letting git carry uncommitted
+        // changes onto the new branch as it normally would.
+      }
+
       await this.git.fetch(cwd);
       const base = baseBranch ?? (await this.git.getDefaultBranch(cwd));
       await this.git.checkoutNewBranch(cwd, branchName, base);

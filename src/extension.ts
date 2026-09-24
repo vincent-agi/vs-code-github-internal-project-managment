@@ -385,7 +385,12 @@ async function buildController(
           { onDirtyWorkingTree: () => promptDirtyWorkingTree(issue.number) },
           pattern,
         )
-        .then(reportBranchCreationOutcome);
+        .then(reportBranchCreationOutcome)
+        .catch((error: unknown) => {
+          void vscode.window.showErrorMessage(
+            `Could not create branch: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        });
     },
     (issue) => {
       if (!folderPath) {
@@ -405,6 +410,11 @@ async function buildController(
           if (choice === "Open") {
             void vscode.commands.executeCommand("remoteProjectManager.openIssueFromTree", issue.id);
           }
+        })
+        .then(undefined, (error: unknown) => {
+          void vscode.window.showErrorMessage(
+            `Failed to show assignment notification: ${error instanceof Error ? error.message : String(error)}`,
+          );
         });
     },
     (error) => {
