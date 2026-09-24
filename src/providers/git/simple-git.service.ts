@@ -1,5 +1,6 @@
 import simpleGit from "simple-git";
 import type { GitStatusSummary, IGitService } from "../../core/git/git-service.interface";
+import { parseSymbolicRefBranch } from "../../core/git/parse-symbolic-ref";
 
 const DEFAULT_BRANCH_CANDIDATES = ["main", "master", "devel"];
 
@@ -39,7 +40,7 @@ export class SimpleGitService implements IGitService {
     const git = simpleGit(cwd);
     try {
       const ref = await git.raw(["symbolic-ref", "refs/remotes/origin/HEAD"]);
-      const branch = ref.trim().split("/").pop();
+      const branch = parseSymbolicRefBranch(ref);
       if (branch) {
         return branch;
       }
