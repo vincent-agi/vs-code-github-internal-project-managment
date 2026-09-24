@@ -39,7 +39,11 @@ export interface GitlabClient {
   ProjectMilestones: {
     all(projectId: string): Promise<readonly RawGitlabMilestone[]>;
     show(projectId: string, milestoneId: number): Promise<RawGitlabMilestone>;
-    create(projectId: string, options: Record<string, unknown>): Promise<RawGitlabMilestone>;
+    create(
+      projectId: string,
+      title: string,
+      options: Record<string, unknown>,
+    ): Promise<RawGitlabMilestone>;
     edit(
       projectId: string,
       milestoneId: number,
@@ -154,8 +158,7 @@ export class GitlabProvider implements IProjectProvider {
   }
 
   async createMilestone(input: CreateMilestoneInput): Promise<IMilestone> {
-    const raw = await this.client.ProjectMilestones.create(this.projectPath, {
-      title: input.title,
+    const raw = await this.client.ProjectMilestones.create(this.projectPath, input.title, {
       description: input.description,
       due_date: input.dueOn ?? undefined,
     });

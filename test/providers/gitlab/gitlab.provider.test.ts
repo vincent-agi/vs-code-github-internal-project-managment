@@ -184,7 +184,7 @@ describe("GitlabProvider.createMilestone", () => {
 
     const milestone = await provider.createMilestone({ title: "v1.0" });
 
-    expect(create).toHaveBeenCalledWith("acme/widgets", expect.objectContaining({ title: "v1.0" }));
+    expect(create).toHaveBeenCalledWith("acme/widgets", "v1.0", expect.objectContaining({}));
     expect(milestone.id).toBe("7");
   });
 });
