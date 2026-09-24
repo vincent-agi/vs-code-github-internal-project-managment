@@ -1,3 +1,4 @@
+import { wasNewlyAssignedToMe } from "../core/automation/assignment-change";
 import { detectIssueTransition, type IssueTransition } from "../core/automation/issue-transition";
 import type { IIssue } from "../core/models/issue.model";
 import type { FetchOptions, IProjectProvider } from "../core/providers/project-provider.interface";
@@ -6,6 +7,9 @@ import type { InboundMessage, OutboundMessage } from "./messages";
 
 /** Called when an issue update crosses a recognized lifecycle transition. */
 export type IssueTransitionHandler = (issue: IIssue, transition: IssueTransition) => void;
+
+/** Called when a fetch reveals the current user was newly assigned to an issue. */
+export type NewAssignmentHandler = (issue: IIssue) => void;
 
 /**
  * Called when the webview asks to create (and switch to) a branch for an
@@ -27,6 +31,9 @@ export type CreateBranchRequestHandler = (issue: IIssue) => Promise<string | nul
  * lifecycle changes (e.g. an issue closing, or picking up the
  * "in-progress" label) so automation like auto-creating a branch can
  * subscribe without this class knowing about branches or git.
+ * `onNewAssignment` is a parallel, independent hook: it fires whenever a
+ * fetch reveals the current user was newly added to an issue's
+ * assignees, regardless of any state/label transition on that issue.
  *
  * Transitions are detected by diffing each freshly fetched issue against
  * the *last state snapshot this controller sent*, not an immediate
@@ -44,6 +51,7 @@ export class PanelController {
     private readonly postMessage: (message: OutboundMessage) => void,
     private readonly onIssueTransition?: IssueTransitionHandler,
     private readonly onCreateBranchRequest?: CreateBranchRequestHandler,
+    private readonly onNewAssignment?: NewAssignmentHandler,
   ) {}
 
   async handleMessage(message: InboundMessage): Promise<void> {
@@ -102,11 +110,11 @@ export class PanelController {
     assertCanWrite(capabilities, permission);
   }
 
-  private detectAndNotifyTransitions(issues: readonly IIssue[]): void {
+  private detectAndNotifyTransitions(issues: readonly IIssue[], username: string): void {
     const previousById = this.lastIssuesById;
     this.lastIssuesById = new Map(issues.map((issue) => [issue.id, issue]));
 
-    if (!previousById || !this.onIssueTransition) {
+    if (!previousById) {
       return;
     }
 
@@ -115,9 +123,14 @@ export class PanelController {
       if (!previous) {
         continue;
       }
-      const transition = detectIssueTransition(previous, issue);
-      if (transition !== "none") {
-        this.onIssueTransition(issue, transition);
+      if (this.onIssueTransition) {
+        const transition = detectIssueTransition(previous, issue);
+        if (transition !== "none") {
+          this.onIssueTransition(issue, transition);
+        }
+      }
+      if (this.onNewAssignment && wasNewlyAssignedToMe(previous, issue, username)) {
+        this.onNewAssignment(issue);
       }
     }
   }
@@ -132,7 +145,7 @@ export class PanelController {
         this.provider.listLabels(options),
         this.provider.listAssignableUsers(options),
       ]);
-    this.detectAndNotifyTransitions(issues);
+    this.detectAndNotifyTransitions(issues, currentUser.username);
     this.postMessage({
       type: "state",
       issues,

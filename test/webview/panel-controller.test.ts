@@ -298,6 +298,66 @@ describe("PanelController issue transition hook", () => {
   });
 });
 
+describe("PanelController new-assignment hook", () => {
+  it("does not notify on the very first state fetch (no baseline to diff against)", async () => {
+    const provider = makeProvider(fullAccess);
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([{ ...issue, assignees: ["octocat"] }]);
+    const postMessage = vi.fn();
+    const onNewAssignment = vi.fn();
+    const controller = new PanelController(provider, postMessage, undefined, undefined, onNewAssignment);
+
+    await controller.handleMessage({ type: "requestState" });
+
+    expect(onNewAssignment).not.toHaveBeenCalled();
+  });
+
+  it("notifies when the current user is newly added to an issue's assignees", async () => {
+    const provider = makeProvider(fullAccess);
+    const postMessage = vi.fn();
+    const onNewAssignment = vi.fn();
+    const controller = new PanelController(provider, postMessage, undefined, undefined, onNewAssignment);
+
+    // Baseline: unassigned.
+    await controller.handleMessage({ type: "requestState" });
+
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([{ ...issue, assignees: ["octocat"] }]);
+    await controller.handleMessage({ type: "requestState", forceRefresh: true });
+
+    expect(onNewAssignment).toHaveBeenCalledWith(expect.objectContaining({ assignees: ["octocat"] }));
+  });
+
+  it("does not notify when a different user is assigned", async () => {
+    const provider = makeProvider(fullAccess);
+    const postMessage = vi.fn();
+    const onNewAssignment = vi.fn();
+    const controller = new PanelController(provider, postMessage, undefined, undefined, onNewAssignment);
+
+    await controller.handleMessage({ type: "requestState" });
+
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([{ ...issue, assignees: ["someone-else"] }]);
+    await controller.handleMessage({ type: "requestState", forceRefresh: true });
+
+    expect(onNewAssignment).not.toHaveBeenCalled();
+  });
+
+  it("does not notify when the user was already assigned", async () => {
+    const provider = makeProvider(fullAccess);
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([{ ...issue, assignees: ["octocat"] }]);
+    const postMessage = vi.fn();
+    const onNewAssignment = vi.fn();
+    const controller = new PanelController(provider, postMessage, undefined, undefined, onNewAssignment);
+
+    await controller.handleMessage({ type: "requestState" });
+    onNewAssignment.mockClear();
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { ...issue, assignees: ["octocat"], title: "Renamed" },
+    ]);
+    await controller.handleMessage({ type: "requestState", forceRefresh: true });
+
+    expect(onNewAssignment).not.toHaveBeenCalled();
+  });
+});
+
 describe("PanelController error handling", () => {
   it("posts an error message when the provider throws", async () => {
     const provider = makeProvider(fullAccess);

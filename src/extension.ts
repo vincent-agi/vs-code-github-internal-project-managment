@@ -376,6 +376,15 @@ async function buildController(
       }
       return requestCreateBranch(issue, folderPath, gitService, branchManager, pattern);
     },
+    (issue) => {
+      void vscode.window
+        .showInformationMessage(`You were assigned to issue #${issue.number}: ${issue.title}`, "Open")
+        .then((choice) => {
+          if (choice === "Open") {
+            void vscode.commands.executeCommand("remoteProjectManager.openIssueFromTree", issue.id);
+          }
+        });
+    },
   );
 }
 
