@@ -743,9 +743,16 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
     byId<HTMLButtonElement>("issue-new").disabled = !currentCapabilities.canWriteIssues;
     byId<HTMLButtonElement>("milestone-new").disabled = !currentCapabilities.canWriteMilestones;
     renderIssueList();
-    renderIssueDetail();
+    // Skip re-rendering the create form while it's open — the "state"
+    // handler runs on every refresh/edit, and re-rendering would wipe
+    // out an in-progress, unsaved draft (see #49).
+    if (!showNewIssueForm) {
+      renderIssueDetail();
+    }
     renderMilestoneList();
-    renderMilestoneDetail();
+    if (!showNewMilestoneForm) {
+      renderMilestoneDetail();
+    }
   } else if (message.type === "repositoryOptions") {
     clearError();
     renderRepositoryPicker(message.options);
