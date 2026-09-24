@@ -38,7 +38,10 @@ export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri
   </div>
 
   <div id="view-issues" class="view">
-    <div class="list" id="issue-list"></div>
+    <div class="list-column">
+      <div class="list-toolbar"><button id="issue-new" class="tab" type="button" disabled>+ New Issue</button></div>
+      <div class="list" id="issue-list"></div>
+    </div>
     <div class="detail" id="issue-detail"></div>
   </div>
 

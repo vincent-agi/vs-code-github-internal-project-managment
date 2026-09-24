@@ -83,6 +83,10 @@ type OutboundMessage =
 type InboundMessage =
   | { type: "requestState"; forceRefresh?: boolean }
   | { type: "selectRepository"; id: string }
+  | {
+      type: "createIssue";
+      input: { title: string; body: string; milestoneId?: string | null };
+    }
   | { type: "updateIssue"; id: string; patch: Partial<Pick<IssueView, "title" | "body" | "state" | "assignees">> }
   | { type: "updateMilestone"; id: string; patch: Partial<Pick<MilestoneView, "title" | "description" | "state">> }
   | { type: "createBranchForIssue"; id: string };
@@ -105,6 +109,7 @@ let currentUser: AuthenticatedUser | null = null;
 let selectedIssueId: string | null = null;
 let selectedMilestoneId: string | null = null;
 let issueMilestoneFilter: string | null = null;
+let showNewIssueForm = false;
 let lastState: StateSnapshot | null = null;
 
 function post(message: InboundMessage): void {
@@ -186,6 +191,7 @@ function renderIssueList(): void {
     item.innerHTML = `<span class="number">#${issue.number}</span><span class="${stateClass}">${escapeHtml(issue.title)}</span>${renderLabelBadges(issue.labels)}`;
     item.addEventListener("click", () => {
       selectedIssueId = issue.id;
+      showNewIssueForm = false;
       renderIssueList();
       renderIssueDetail();
     });
@@ -193,8 +199,54 @@ function renderIssueList(): void {
   }
 }
 
+function renderNewIssueForm(): void {
+  const detail = byId<HTMLDivElement>("issue-detail");
+  const milestoneOptions = currentMilestones
+    .map((milestone) => `<option value="${escapeAttr(milestone.id)}">${escapeHtml(milestone.title)}</option>`)
+    .join("");
+  detail.innerHTML = `
+    <h3>New Issue</h3>
+
+    <label for="new-issue-title">Title</label>
+    <input id="new-issue-title" type="text" />
+
+    <label for="new-issue-body">Body</label>
+    <textarea id="new-issue-body"></textarea>
+
+    <label for="new-issue-milestone">Milestone</label>
+    <select id="new-issue-milestone">
+      <option value="">—</option>
+      ${milestoneOptions}
+    </select>
+
+    <button id="new-issue-create" type="button">Create</button>
+    <button id="new-issue-cancel" type="button">Cancel</button>
+  `;
+
+  byId<HTMLButtonElement>("new-issue-cancel").addEventListener("click", () => {
+    showNewIssueForm = false;
+    renderIssueDetail();
+  });
+
+  byId<HTMLButtonElement>("new-issue-create").addEventListener("click", () => {
+    const title = byId<HTMLInputElement>("new-issue-title").value.trim();
+    if (!title) {
+      showError("Title is required.");
+      return;
+    }
+    const body = byId<HTMLTextAreaElement>("new-issue-body").value;
+    const milestoneId = byId<HTMLSelectElement>("new-issue-milestone").value || null;
+    post({ type: "createIssue", input: { title, body, milestoneId } });
+    showNewIssueForm = false;
+  });
+}
+
 function renderIssueDetail(): void {
   const detail = byId<HTMLDivElement>("issue-detail");
+  if (showNewIssueForm) {
+    renderNewIssueForm();
+    return;
+  }
   const issue = currentIssues.find((candidate) => candidate.id === selectedIssueId);
   if (!issue) {
     detail.innerHTML = `<p>Select an issue to view details.</p>`;
@@ -376,6 +428,12 @@ byId<HTMLButtonElement>("tab-issues").addEventListener("click", () => {
   renderIssueList();
 });
 byId<HTMLButtonElement>("tab-milestones").addEventListener("click", () => setActiveTab("milestones"));
+byId<HTMLButtonElement>("issue-new").addEventListener("click", () => {
+  selectedIssueId = null;
+  showNewIssueForm = true;
+  renderIssueList();
+  renderIssueDetail();
+});
 byId<HTMLButtonElement>("refresh-button").addEventListener("click", () => {
   post({ type: "requestState", forceRefresh: true });
 });
@@ -402,6 +460,7 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
     currentMilestones = message.milestones;
     currentCapabilities = message.capabilities;
     currentUser = message.currentUser;
+    byId<HTMLButtonElement>("issue-new").disabled = !currentCapabilities.canWriteIssues;
     renderIssueList();
     renderIssueDetail();
     renderMilestoneList();
