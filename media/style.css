@@ -90,6 +90,7 @@ body {
 
 .list-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
@@ -97,7 +98,7 @@ body {
 }
 
 .list-toolbar input[type="text"] {
-  flex: 1;
+  flex: 1 1 100%;
   min-width: 0;
   box-sizing: border-box;
   background-color: var(--vscode-input-background);
@@ -108,8 +109,9 @@ body {
 }
 
 .list-toolbar select {
+  flex: 1 1 100px;
+  min-width: 90px;
   box-sizing: border-box;
-  max-width: 40%;
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   border: 1px solid var(--vscode-input-border, transparent);

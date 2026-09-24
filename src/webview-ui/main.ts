@@ -125,6 +125,7 @@ let selectedMilestoneId: string | null = null;
 let issueMilestoneFilter: string | null = null;
 let issueSearchQuery = "";
 let issueLabelFilter: string | null = null;
+let issueAssigneeFilter: string | null = null;
 let showNewIssueForm = false;
 let showNewMilestoneForm = false;
 let lastState: StateSnapshot | null = null;
@@ -208,6 +209,12 @@ function renderIssueList(): void {
     }
     if (issueLabelFilter && !candidate.labels.includes(issueLabelFilter)) {
       return false;
+    }
+    if (issueAssigneeFilter) {
+      const wanted = issueAssigneeFilter === "@me" ? currentUser?.username ?? null : issueAssigneeFilter;
+      if (!wanted || !candidate.assignees.includes(wanted)) {
+        return false;
+      }
     }
     return true;
   });
@@ -543,6 +550,17 @@ function renderIssueLabelFilterOptions(): void {
   issueLabelFilter = select.value || null;
 }
 
+function renderIssueAssigneeFilterOptions(): void {
+  const select = byId<HTMLSelectElement>("issue-assignee-filter");
+  const previousValue = select.value;
+  const usernames = currentAvailableAssignableUsers;
+  select.innerHTML =
+    `<option value="">All assignees</option><option value="@me">Assigned to me</option>` +
+    usernames.map((username) => `<option value="${escapeAttr(username)}">${escapeHtml(username)}</option>`).join("");
+  select.value = previousValue === "@me" || usernames.includes(previousValue) ? previousValue : "";
+  issueAssigneeFilter = select.value || null;
+}
+
 function setActiveTab(tab: "issues" | "milestones"): void {
   byId<HTMLButtonElement>("tab-issues").classList.toggle("active", tab === "issues");
   byId<HTMLButtonElement>("tab-milestones").classList.toggle("active", tab === "milestones");
@@ -553,7 +571,9 @@ function setActiveTab(tab: "issues" | "milestones"): void {
 byId<HTMLButtonElement>("tab-issues").addEventListener("click", () => {
   issueMilestoneFilter = null;
   issueLabelFilter = null;
+  issueAssigneeFilter = null;
   byId<HTMLSelectElement>("issue-label-filter").value = "";
+  byId<HTMLSelectElement>("issue-assignee-filter").value = "";
   setActiveTab("issues");
   renderIssueList();
 });
@@ -563,6 +583,10 @@ byId<HTMLInputElement>("issue-search").addEventListener("input", (event) => {
 });
 byId<HTMLSelectElement>("issue-label-filter").addEventListener("change", (event) => {
   issueLabelFilter = (event.target as HTMLSelectElement).value || null;
+  renderIssueList();
+});
+byId<HTMLSelectElement>("issue-assignee-filter").addEventListener("change", (event) => {
+  issueAssigneeFilter = (event.target as HTMLSelectElement).value || null;
   renderIssueList();
 });
 byId<HTMLButtonElement>("tab-milestones").addEventListener("click", () => setActiveTab("milestones"));
@@ -609,6 +633,7 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
     currentAvailableLabels = message.availableLabels;
     currentAvailableAssignableUsers = message.availableAssignableUsers;
     renderIssueLabelFilterOptions();
+    renderIssueAssigneeFilterOptions();
     byId<HTMLButtonElement>("issue-new").disabled = !currentCapabilities.canWriteIssues;
     byId<HTMLButtonElement>("milestone-new").disabled = !currentCapabilities.canWriteMilestones;
     renderIssueList();
