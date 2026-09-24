@@ -12,6 +12,7 @@ import { SimpleGitService } from "./providers/git/simple-git.service";
 import { resolveRepositoryCandidates, type RepositoryCandidate } from "./core/workspace/repository-resolver";
 import { generateBranchName } from "./core/automation/branch-name";
 import { shouldAutoCreateBranch } from "./core/automation/auto-branch-guard";
+import { selectMyOpenIssues, type MyIssueSummary } from "./core/tree/my-issues";
 import { BranchManager } from "./core/git/branch-manager";
 import type { DirtyTreeDecision } from "./core/git/branch-manager.interface";
 import { pickDefaultBaseBranch } from "./core/git/pick-default-base-branch";
@@ -441,16 +442,66 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
 }
 
 /**
- * Empty tree so the sidebar view has no content of its own and always
- * falls back to the `viewsWelcome` entry, whose "Open Panel" link runs
- * the `remoteProjectManager.openPanel` command.
+ * Populates the activity bar sidebar with the current user's assigned
+ * open issues, so they're visible without opening the full panel. Lazily
+ * connects on first reveal (VS Code calls `getChildren` when the view
+ * becomes visible) and reuses that connection afterward, independently
+ * of any panel connection — a separate token prompt/connect from the
+ * panel's own, by design, so revealing the sidebar never depends on the
+ * panel having been opened first.
+ *
+ * When no repository can be resolved unambiguously (none detected, or
+ * multiple candidates the panel's webview picker would normally
+ * disambiguate), or the connection fails for any reason, this silently
+ * returns an empty list rather than prompting/erroring from a passive
+ * sidebar reveal — VS Code then falls back to the `viewsWelcome` entry's
+ * "Open Panel" link, which goes through the full picker/error UX.
  */
-class EmptyTreeDataProvider implements vscode.TreeDataProvider<never> {
-  getTreeItem(element: never): vscode.TreeItem {
-    return element;
+class MyIssuesTreeDataProvider implements vscode.TreeDataProvider<MyIssueSummary> {
+  private connection: { provider: IProjectProvider; currentUser: IAuthenticatedUser } | undefined;
+
+  constructor(private readonly context: vscode.ExtensionContext) {}
+
+  getTreeItem(element: MyIssueSummary): vscode.TreeItem {
+    const item = new vscode.TreeItem(`#${element.number} ${element.title}`, vscode.TreeItemCollapsibleState.None);
+    item.tooltip = element.url;
+    item.iconPath = new vscode.ThemeIcon("issues");
+    return item;
   }
-  getChildren(): never[] {
-    return [];
+
+  async getChildren(): Promise<MyIssueSummary[]> {
+    try {
+      const connection = await this.getConnection();
+      if (!connection) {
+        return [];
+      }
+      const issues = await connection.provider.listIssues();
+      return selectMyOpenIssues(issues, connection.currentUser.username);
+    } catch {
+      return [];
+    }
+  }
+
+  private async getConnection(): Promise<{ provider: IProjectProvider; currentUser: IAuthenticatedUser } | undefined> {
+    if (this.connection) {
+      return this.connection;
+    }
+    const resolution = await resolveRepository();
+    if (resolution.kind !== "resolved") {
+      return undefined;
+    }
+    const credentialStore = makeCredentialStore(this.context.secrets);
+    const config = vscode.workspace.getConfiguration("remoteProjectManager");
+    const cacheTtlSeconds = config.get<number>("cacheTtlSeconds", 180);
+    const gitlabHost = config.get<string>("gitlabHost", "") || undefined;
+    this.connection = await resolveAndConnect(
+      resolution.providerKind,
+      resolution.repository,
+      credentialStore,
+      cacheTtlSeconds,
+      gitlabHost,
+    );
+    return this.connection;
   }
 }
 
@@ -475,7 +526,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("remoteProjectManager.signOutGitLab", () => {
       void signOutGitLab(context);
     }),
-    vscode.window.registerTreeDataProvider("remoteProjectManager.sidebar", new EmptyTreeDataProvider()),
+    vscode.window.registerTreeDataProvider("remoteProjectManager.sidebar", new MyIssuesTreeDataProvider(context)),
   );
 }
 
