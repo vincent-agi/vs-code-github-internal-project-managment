@@ -359,6 +359,7 @@ async function buildController(
   const pattern = branchNamePattern || undefined;
   const gitService = new SimpleGitService();
   const branchManager = new BranchManager(gitService);
+  let reconnecting = false;
 
   return new PanelController(
     provider,
@@ -405,6 +406,19 @@ async function buildController(
             void vscode.commands.executeCommand("remoteProjectManager.openIssueFromTree", issue.id);
           }
         });
+    },
+    (error) => {
+      if (providerKind !== "gitlab" || !isAuthError(error) || reconnecting) {
+        return;
+      }
+      reconnecting = true;
+      void credentialStore.setToken(providerKind, "").then(() => {
+        void vscode.window.showWarningMessage(
+          "Your GitLab session expired. Reopening the panel to reconnect...",
+        );
+        panel.dispose();
+        void openPanel(context);
+      });
     },
   );
 }
@@ -570,8 +584,20 @@ async function openPanel(
  */
 class MyIssuesTreeDataProvider implements vscode.TreeDataProvider<MyIssueSummary> {
   private connection: { provider: IProjectProvider; currentUser: IAuthenticatedUser } | undefined;
+  private readonly changeEmitter = new vscode.EventEmitter<void>();
+  readonly onDidChangeTreeData = this.changeEmitter.event;
 
   constructor(private readonly context: vscode.ExtensionContext) {}
+
+  /**
+   * Drops the cached connection and asks VS Code to re-render the tree
+   * immediately — used after "Sign Out of GitLab" (#21), which otherwise
+   * cleared the stored token without the sidebar ever noticing.
+   */
+  invalidateConnection(): void {
+    this.connection = undefined;
+    this.changeEmitter.fire();
+  }
 
   getTreeItem(element: MyIssueSummary): vscode.TreeItem {
     const item = new vscode.TreeItem(
@@ -596,7 +622,14 @@ class MyIssuesTreeDataProvider implements vscode.TreeDataProvider<MyIssueSummary
       }
       const issues = await connection.provider.listIssues();
       return selectMyOpenIssues(issues, connection.currentUser.username);
-    } catch {
+    } catch (error) {
+      // Drop the cached connection on an auth failure (e.g. a revoked
+      // GitLab token) so the next reveal re-runs getConnection() and
+      // goes through resolveAndConnect's re-prompt flow, instead of
+      // reusing a dead provider forever.
+      if (isAuthError(error)) {
+        this.connection = undefined;
+      }
       return [];
     }
   }
@@ -632,20 +665,25 @@ class MyIssuesTreeDataProvider implements vscode.TreeDataProvider<MyIssueSummary
  * is the escape hatch for switching accounts or recovering from a stale
  * token: the next GitLab connection prompts for a fresh one.
  */
-async function signOutGitLab(context: vscode.ExtensionContext): Promise<void> {
+async function signOutGitLab(
+  context: vscode.ExtensionContext,
+  treeDataProvider: MyIssuesTreeDataProvider,
+): Promise<void> {
   await context.secrets.delete(secretKeyFor("gitlab"));
+  treeDataProvider.invalidateConnection();
   void vscode.window.showInformationMessage(
     "Signed out of GitLab. You'll be prompted for a new token next time the panel connects to a GitLab repository.",
   );
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  const treeDataProvider = new MyIssuesTreeDataProvider(context);
   context.subscriptions.push(
     vscode.commands.registerCommand("remoteProjectManager.openPanel", () => {
       void openPanel(context);
     }),
     vscode.commands.registerCommand("remoteProjectManager.signOutGitLab", () => {
-      void signOutGitLab(context);
+      void signOutGitLab(context, treeDataProvider);
     }),
     vscode.commands.registerCommand("remoteProjectManager.openIssueFromTree", (issueId: string) => {
       void openPanel(context, { kind: "selectIssue", id: issueId });
@@ -659,10 +697,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("remoteProjectManager.refresh", () => {
       void openPanel(context, { kind: "refresh" });
     }),
-    vscode.window.registerTreeDataProvider(
-      "remoteProjectManager.sidebar",
-      new MyIssuesTreeDataProvider(context),
-    ),
+    vscode.window.registerTreeDataProvider("remoteProjectManager.sidebar", treeDataProvider),
   );
 }
 

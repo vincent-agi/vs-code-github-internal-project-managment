@@ -29,9 +29,11 @@ The extension does not implement a request-budget rate limiter. Instead, it cach
 
 If your GitLab PAT expired, was revoked, or you want to switch accounts:
 
-1. Run **Remote Project Manager: Sign Out of GitLab** from the Command Palette. This clears the stored token from `SecretStorage` immediately — reloading the window or resetting the extension host does _not_ clear it by itself, since it isn't held in memory.
+1. Run **Remote Project Manager: Sign Out of GitLab** from the Command Palette. This clears the stored token from `SecretStorage` immediately, and also resets the sidebar's cached connection so it re-prompts on its next reveal instead of silently staying empty — reloading the window or resetting the extension host does _not_ clear the token by itself, since it isn't held in memory.
 2. The next time the panel connects to a GitLab repository, you'll be prompted for a new Personal Access Token.
 3. Going forward, always confirm the token's scope matches [Authentication and Security](01-authentication-and-security.md#gitlab-personal-access-token-in-secretstorage) before saving it.
+
+**If the token expires or is revoked mid-session** (rather than being reset manually): the panel detects a resulting `401` on its next action, automatically clears the stored token, shows a warning, and reopens the panel — which re-prompts for a token the same way a first-time connection does. You don't need to run Sign Out yourself for this case; it's only needed to switch accounts or force a fresh prompt proactively.
 
 ### "Operation requires 'canWriteIssues'..." error
 

@@ -52,6 +52,7 @@ export class PanelController {
     private readonly onIssueTransition?: IssueTransitionHandler,
     private readonly onCreateBranchRequest?: CreateBranchRequestHandler,
     private readonly onNewAssignment?: NewAssignmentHandler,
+    private readonly onError?: (error: unknown) => void,
   ) {}
 
   async handleMessage(message: InboundMessage): Promise<void> {
@@ -101,6 +102,7 @@ export class PanelController {
         }
       }
     } catch (error) {
+      this.onError?.(error);
       this.postMessage({
         type: "error",
         message: error instanceof Error ? error.message : String(error),

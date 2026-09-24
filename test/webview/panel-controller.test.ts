@@ -448,4 +448,25 @@ describe("PanelController error handling", () => {
 
     expect(postMessage).toHaveBeenCalledWith({ type: "error", message: "network down" });
   });
+
+  it("also invokes onError with the raw error, alongside posting the error message", async () => {
+    const provider = makeProvider(fullAccess);
+    const authError = new Error("401 Unauthorized");
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockRejectedValue(authError);
+    const postMessage = vi.fn();
+    const onError = vi.fn();
+    const controller = new PanelController(
+      provider,
+      postMessage,
+      undefined,
+      undefined,
+      undefined,
+      onError,
+    );
+
+    await controller.handleMessage({ type: "requestState" });
+
+    expect(onError).toHaveBeenCalledWith(authError);
+    expect(postMessage).toHaveBeenCalledWith({ type: "error", message: "401 Unauthorized" });
+  });
 });
