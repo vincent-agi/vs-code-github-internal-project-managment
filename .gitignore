@@ -3,3 +3,5 @@ dist/
 *.vsix
 .vscode-test/
 test-results/
+test-integration/out/
+test-integration/fixtures/workspace/

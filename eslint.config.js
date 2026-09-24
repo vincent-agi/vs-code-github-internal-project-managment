@@ -10,7 +10,15 @@ const eslintConfigPrettier = require("eslint-config-prettier");
 //   bundler — its necessary duplication of types/logic from main.ts's
 //   peers is intentional, see ADR-0003, not something to "fix" here).
 module.exports = tseslint.config(
-  { ignores: ["dist/**", "*.vsix"] },
+  {
+    ignores: [
+      "dist/**",
+      "*.vsix",
+      ".vscode-test/**",
+      "test-integration/fixtures/workspace/**",
+      "test-integration/out/**",
+    ],
+  },
   {
     files: ["src/**/*.ts", "test/**/*.ts"],
     ignores: ["src/webview-ui/**"],
