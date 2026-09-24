@@ -492,6 +492,7 @@ async function openPanel(
       );
     } catch (error) {
       void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
+      panel.dispose();
       return;
     }
     activeController = controller;
@@ -539,6 +540,7 @@ async function openPanel(
         );
       } catch (error) {
         void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
+        panel.dispose();
         return;
       }
       activeController = controller;
