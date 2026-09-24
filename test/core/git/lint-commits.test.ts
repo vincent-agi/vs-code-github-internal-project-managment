@@ -36,4 +36,16 @@ describe("lintCommits", () => {
     const [result] = lintCommits([{ hash: "abc", message: "Fixed the login bug" }]);
     expect(result.message).toBe("Fixed the login bug");
   });
+
+  it("accepts a commit using a multi-codepoint gitmoji (e.g. :lock:'s 🔒️) as valid", () => {
+    const [result] = lintCommits([{ hash: "abc", message: "fix: 🔒️ patch auth hole" }]);
+    expect(result.valid).toBe(true);
+  });
+
+  it("strips a full multi-codepoint gitmoji from the suggestion, with no leftover variation selector", () => {
+    const [result] = lintCommits([{ hash: "abc", message: "🔒️ patch auth hole" }]);
+    expect(result.valid).toBe(false);
+    expect(result.suggestion).not.toContain("️");
+    expect(result.suggestion?.endsWith("patch auth hole")).toBe(true);
+  });
 });

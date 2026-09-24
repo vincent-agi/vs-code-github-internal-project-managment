@@ -84,6 +84,22 @@ describe("validateCommitMessage", () => {
     expect(validateCommitMessage("fix: 🐛 escape fallback\n\nFixes #53").valid).toBe(true);
   });
 
+  it("accepts a gitmoji with a trailing variation selector (e.g. :lock:'s 🔒️)", () => {
+    expect(validateCommitMessage("fix: 🔒️ patch auth hole").valid).toBe(true);
+  });
+
+  it("accepts a ZWJ-sequence gitmoji (e.g. :technologist:'s 🧑‍💻)", () => {
+    expect(validateCommitMessage("feat: 🧑‍💻 improve DX").valid).toBe(true);
+  });
+
+  it("accepts every gitmoji bundled in resources/gitmojis.json", async () => {
+    const gitmojis = (await import("../../../resources/gitmojis.json")).default;
+    for (const gitmoji of gitmojis) {
+      const result = validateCommitMessage(`fix: ${gitmoji.emoji} some description`);
+      expect(result.valid, `${gitmoji.code} (${gitmoji.emoji}) should validate`).toBe(true);
+    }
+  });
+
   it("rejects a message missing the gitmoji", () => {
     const result = validateCommitMessage("fix: escape fallback");
     expect(result.valid).toBe(false);
