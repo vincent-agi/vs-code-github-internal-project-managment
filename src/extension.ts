@@ -39,6 +39,7 @@ import { buildPrBody, buildPrTitle, type CommitRef } from "./core/git/pr-body";
 import { formatIssueContext } from "./core/ai/issue-context";
 import { formatMilestoneContext } from "./core/ai/milestone-context";
 import { replaceManagedSection } from "./core/ai/managed-section";
+import { resolveSafeRelativeSegments } from "./core/workspace/safe-relative-path";
 import type { IMilestone } from "./core/models/milestone.model";
 
 function secretKeyFor(provider: ProviderKind): string {
@@ -1297,7 +1298,14 @@ async function exportMilestoneContext(context: vscode.ExtensionContext): Promise
   const relativePath =
     config.get<string>("aiContextFile", ".github/copilot-instructions.md") ||
     ".github/copilot-instructions.md";
-  const fileUri = vscode.Uri.joinPath(vscode.Uri.file(cwd), ...relativePath.split("/"));
+  const safeSegments = resolveSafeRelativeSegments(relativePath);
+  if (!safeSegments) {
+    void vscode.window.showErrorMessage(
+      `'remoteProjectManager.aiContextFile' ("${relativePath}") escapes the workspace folder and was rejected.`,
+    );
+    return;
+  }
+  const fileUri = vscode.Uri.joinPath(vscode.Uri.file(cwd), ...safeSegments);
 
   let existing = "";
   try {
