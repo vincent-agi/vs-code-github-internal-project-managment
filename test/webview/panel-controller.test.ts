@@ -104,6 +104,20 @@ describe("PanelController.handleMessage 'requestState' with forceRefresh", () =>
   });
 });
 
+describe("PanelController getCurrentUser caching", () => {
+  it("fetches the current user once and reuses it across repeated requestState calls", async () => {
+    const provider = makeProvider(fullAccess);
+    const postMessage = vi.fn();
+    const controller = new PanelController(provider, postMessage);
+
+    await controller.handleMessage({ type: "requestState" });
+    await controller.handleMessage({ type: "requestState", forceRefresh: true });
+    await controller.handleMessage({ type: "createIssue", input: { title: "New", body: "" } });
+
+    expect(provider.getCurrentUser).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("PanelController.handleMessage 'updateIssue'", () => {
   it("updates and re-sends state when the account can write", async () => {
     const provider = makeProvider(fullAccess);

@@ -1,7 +1,11 @@
 import { wasNewlyAssignedToMe } from "../core/automation/assignment-change";
 import { detectIssueTransition, type IssueTransition } from "../core/automation/issue-transition";
 import type { IIssue } from "../core/models/issue.model";
-import type { FetchOptions, IProjectProvider } from "../core/providers/project-provider.interface";
+import type {
+  FetchOptions,
+  IAuthenticatedUser,
+  IProjectProvider,
+} from "../core/providers/project-provider.interface";
 import { assertCanWrite } from "../core/providers/project-provider.interface";
 import type { InboundMessage, OutboundMessage } from "./messages";
 
@@ -45,6 +49,7 @@ export type CreateBranchRequestHandler = (issue: IIssue) => Promise<string | nul
  */
 export class PanelController {
   private lastIssuesById: Map<string, IIssue> | null = null;
+  private cachedUser: IAuthenticatedUser | null = null;
 
   constructor(
     private readonly provider: IProjectProvider,
@@ -140,6 +145,19 @@ export class PanelController {
     }
   }
 
+  /**
+   * The authenticated user can't change mid-session, so fetch it once and
+   * reuse it — matching ADR-0003's documented intent ("getCurrentUser is
+   * called once per session"), which `sendState()` was violating by
+   * calling it on every requestState/create/update.
+   */
+  private async getCurrentUser(): Promise<IAuthenticatedUser> {
+    if (!this.cachedUser) {
+      this.cachedUser = await this.provider.getCurrentUser();
+    }
+    return this.cachedUser;
+  }
+
   private async sendState(options?: FetchOptions): Promise<void> {
     const [
       capabilities,
@@ -152,7 +170,7 @@ export class PanelController {
       this.provider.getCapabilities(options),
       this.provider.listIssues(options),
       this.provider.listMilestones(options),
-      this.provider.getCurrentUser(),
+      this.getCurrentUser(),
       this.provider.listLabels(options),
       this.provider.listAssignableUsers(options),
     ]);
