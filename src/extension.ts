@@ -381,6 +381,7 @@ async function buildController(
   const { provider, currentUser } = await connectRepository(context, providerKind, repository);
   activeFolderPath = folderPath;
   activeProvider = provider;
+  activeProviderKind = providerKind;
 
   const config = vscode.workspace.getConfiguration("remoteProjectManager");
   const autoBranchEnabled = config.get<boolean>("autoBranchOnInProgress", true);
@@ -465,9 +466,10 @@ async function buildController(
 /** The single open panel and its controller, if any — see {@link openPanel}. */
 let activePanel: vscode.WebviewPanel | undefined;
 let activeController: PanelController | undefined;
-/** The workspace folder and connected provider backing `activeController`, if any (see {@link buildController}). */
+/** The workspace folder, connected provider, and provider kind backing `activeController`, if any (see {@link buildController}). */
 let activeFolderPath: string | undefined;
 let activeProvider: IProjectProvider | undefined;
+let activeProviderKind: ProviderKind | undefined;
 
 /** A deferred UI action to apply once the panel (existing or freshly built) has a ready controller. */
 type PendingPanelAction =
@@ -535,6 +537,7 @@ async function openPanel(
       activeController = undefined;
       activeFolderPath = undefined;
       activeProvider = undefined;
+      activeProviderKind = undefined;
     }
   });
 
@@ -720,6 +723,15 @@ async function signOutGitLab(
 ): Promise<void> {
   await context.secrets.delete(secretKeyFor("gitlab"));
   treeDataProvider.invalidateConnection();
+  // The AI-context/git-automation commands (getActiveConnection) reuse
+  // activeProvider with no freshness check — clear it too so they
+  // re-resolve and re-prompt for a token instead of silently reusing a
+  // provider built with the now-deleted one.
+  if (activeProviderKind === "gitlab") {
+    activeProvider = undefined;
+    activeFolderPath = undefined;
+    activeProviderKind = undefined;
+  }
   void vscode.window.showInformationMessage(
     "Signed out of GitLab. You'll be prompted for a new token next time the panel connects to a GitLab repository.",
   );
