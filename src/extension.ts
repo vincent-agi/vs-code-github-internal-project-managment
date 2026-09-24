@@ -2,8 +2,9 @@ import * as vscode from "vscode";
 import { Octokit } from "@octokit/rest";
 import { Gitlab } from "@gitbeaker/rest";
 import { ensureToken, type ICredentialStore } from "./core/auth/ensure-token";
+import { isAuthError } from "./core/auth/is-auth-error";
 import type { IIssue, ProviderKind } from "./core/models/issue.model";
-import type { IProjectProvider } from "./core/providers/project-provider.interface";
+import type { IAuthenticatedUser, IProjectProvider } from "./core/providers/project-provider.interface";
 import { GithubProvider, type GithubClient } from "./providers/github/github.provider";
 import { GitlabProvider, type GitlabClient } from "./providers/gitlab/gitlab.provider";
 import { CachingProjectProvider } from "./providers/caching-project-provider";
@@ -271,6 +272,44 @@ async function requestCreateBranch(
   }
 }
 
+/** Builds a provider and verifies the token by fetching the current user. */
+async function connectProvider(
+  providerKind: ProviderKind,
+  repository: string,
+  token: string,
+  cacheTtlSeconds: number,
+): Promise<{ provider: IProjectProvider; currentUser: IAuthenticatedUser }> {
+  const provider = new CachingProjectProvider(buildProvider(providerKind, repository, token), cacheTtlSeconds * 1000);
+  const currentUser = await provider.getCurrentUser();
+  return { provider, currentUser };
+}
+
+/**
+ * Resolves a token and connects. For GitLab, a stale/revoked stored
+ * token surfaces as a 401 on this first call; rather than showing a
+ * generic error, clear it and re-prompt once via {@link ensureToken}'s
+ * normal "no token stored" path. GitHub's session is managed by VS Code
+ * itself, so it isn't retried here.
+ */
+async function resolveAndConnect(
+  providerKind: ProviderKind,
+  repository: string,
+  credentialStore: ICredentialStore,
+  cacheTtlSeconds: number,
+): Promise<{ provider: IProjectProvider; currentUser: IAuthenticatedUser }> {
+  const token = await resolveToken(providerKind, credentialStore);
+  try {
+    return await connectProvider(providerKind, repository, token, cacheTtlSeconds);
+  } catch (error) {
+    if (providerKind !== "gitlab" || !isAuthError(error)) {
+      throw error;
+    }
+    await credentialStore.setToken(providerKind, "");
+    const freshToken = await resolveToken(providerKind, credentialStore);
+    return connectProvider(providerKind, repository, freshToken, cacheTtlSeconds);
+  }
+}
+
 /** Builds a fully wired PanelController for a resolved provider/repository. */
 async function buildController(
   context: vscode.ExtensionContext,
@@ -280,18 +319,16 @@ async function buildController(
   folderPath: string | undefined,
 ): Promise<PanelController> {
   const credentialStore = makeCredentialStore(context.secrets);
-  const token = await resolveToken(providerKind, credentialStore);
 
   const config = vscode.workspace.getConfiguration("remoteProjectManager");
   const cacheTtlSeconds = config.get<number>("cacheTtlSeconds", 180);
-  const provider = new CachingProjectProvider(buildProvider(providerKind, repository, token), cacheTtlSeconds * 1000);
+  const { provider, currentUser } = await resolveAndConnect(providerKind, repository, credentialStore, cacheTtlSeconds);
 
   const autoBranchEnabled = config.get<boolean>("autoBranchOnInProgress", true);
   const branchNamePattern = config.get<string>("branchNamePattern", "");
   const pattern = branchNamePattern || undefined;
   const gitService = new SimpleGitService();
   const branchManager = new BranchManager(gitService);
-  const currentUser = await provider.getCurrentUser();
 
   return new PanelController(
     provider,
