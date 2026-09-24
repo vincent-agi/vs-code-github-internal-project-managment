@@ -69,6 +69,11 @@
           "default": "",
           "description": "Repository or project path, e.g. 'owner/repo'."
         },
+        "remoteProjectManager.gitlabHost": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname of a self-hosted GitLab instance (e.g. 'gitlab.example.com'), used both to auto-detect repositories on that host and to connect to its API. Leave empty to use gitlab.com."
+        },
         "remoteProjectManager.cacheTtlSeconds": {
           "type": "number",
           "default": 180,

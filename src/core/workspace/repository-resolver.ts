@@ -21,11 +21,14 @@ export interface FolderRemote {
   readonly remoteUrl: string | null;
 }
 
-function mapHostToProvider(host: string): ProviderKind | null {
+function mapHostToProvider(host: string, gitlabHost?: string): ProviderKind | null {
   if (host === "github.com") {
     return "github";
   }
   if (host === "gitlab.com") {
+    return "gitlab";
+  }
+  if (gitlabHost && host === gitlabHost) {
     return "gitlab";
   }
   return null;
@@ -43,13 +46,14 @@ function parsePath(pathname: string): { owner: string; repo: string } | null {
 /**
  * Parses a git remote URL (SSH scp-like, `ssh://`, or `https://`, with or
  * without a trailing `.git`) into a provider and `"owner/repo"` string.
- * Only `github.com` and `gitlab.com` hosts are recognized; self-hosted
- * GitLab instances are out of scope for auto-detection (see ADR-0003).
+ * `github.com` and `gitlab.com` are always recognized; pass `gitlabHost`
+ * (from `remoteProjectManager.gitlabHost`) to also recognize a
+ * self-hosted GitLab instance (see ADR-0003).
  *
  * @returns The parsed remote, or null if the URL is malformed or points
- * at an unsupported host.
+ * at an unrecognized host.
  */
-export function parseGitRemoteUrl(rawUrl: string): ParsedRemote | null {
+export function parseGitRemoteUrl(rawUrl: string, gitlabHost?: string): ParsedRemote | null {
   const url = rawUrl.trim().replace(/\.git$/, "");
 
   if (url.includes("://")) {
@@ -60,7 +64,7 @@ export function parseGitRemoteUrl(rawUrl: string): ParsedRemote | null {
       return null;
     }
     const path = parsePath(parsed.pathname);
-    const provider = path && mapHostToProvider(parsed.hostname);
+    const provider = path && mapHostToProvider(parsed.hostname, gitlabHost);
     return provider && path ? { provider, repository: `${path.owner}/${path.repo}` } : null;
   }
 
@@ -70,22 +74,26 @@ export function parseGitRemoteUrl(rawUrl: string): ParsedRemote | null {
   }
   const [, host, path] = scpMatch;
   const parsedPath = parsePath(path);
-  const provider = parsedPath && mapHostToProvider(host);
+  const provider = parsedPath && mapHostToProvider(host, gitlabHost);
   return provider && parsedPath ? { provider, repository: `${parsedPath.owner}/${parsedPath.repo}` } : null;
 }
 
 /**
  * Resolves which workspace folders point at a recognized GitHub/GitLab
  * repository, for the multi-root workspace picker. Folders with no
- * remote, or a remote on an unsupported host, are silently skipped.
+ * remote, or a remote on an unrecognized host, are silently skipped.
+ * Pass `gitlabHost` to also recognize a self-hosted GitLab instance.
  */
-export function resolveRepositoryCandidates(folders: readonly FolderRemote[]): RepositoryCandidate[] {
+export function resolveRepositoryCandidates(
+  folders: readonly FolderRemote[],
+  gitlabHost?: string,
+): RepositoryCandidate[] {
   const candidates: RepositoryCandidate[] = [];
   for (const folder of folders) {
     if (!folder.remoteUrl) {
       continue;
     }
-    const parsed = parseGitRemoteUrl(folder.remoteUrl);
+    const parsed = parseGitRemoteUrl(folder.remoteUrl, gitlabHost);
     if (!parsed) {
       continue;
     }

@@ -28,7 +28,7 @@ flowchart TD
 - **Explicit setting wins.** If `remoteProjectManager.repository` is set, it's used as-is — no git inspection happens.
 - **Single match is automatic.** In a single-root workspace (or a multi-root workspace where only one folder has a GitHub/GitLab remote), the panel connects immediately.
 - **Multiple matches show a picker.** When more than one workspace folder resolves to a recognized repository, the panel itself renders a list — pick one before any provider connection or token request happens. This means switching between repositories in a multi-root workspace costs nothing until you actually need to.
-- **Supported remotes:** `github.com` and `gitlab.com`, over SSH (`git@host:owner/repo.git`), `ssh://`, or `https://` URLs, with or without a trailing `.git`. Self-hosted GitLab instances are not auto-detected — set `remoteProjectManager.repository` manually for those.
+- **Supported remotes:** `github.com` and `gitlab.com`, over SSH (`git@host:owner/repo.git`), `ssh://`, or `https://` URLs, with or without a trailing `.git`. A self-hosted GitLab instance is also recognized once `remoteProjectManager.gitlabHost` is set to its hostname (e.g. `gitlab.example.com`); otherwise set `remoteProjectManager.repository` manually for those.
 
 ## Viewing Issues and Milestones
 

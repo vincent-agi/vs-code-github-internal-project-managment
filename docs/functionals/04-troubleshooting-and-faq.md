@@ -71,13 +71,13 @@ Check, in order:
 
 ### "No GitHub/GitLab repository detected in this workspace"
 
-The extension only recognizes `origin` remotes on `github.com` or `gitlab.com` (SSH, `ssh://`, or `https://`). This fails when:
+The extension recognizes `origin` remotes on `github.com`, `gitlab.com`, and — once `remoteProjectManager.gitlabHost` is set — one self-hosted GitLab host (SSH, `ssh://`, or `https://`). This fails when:
 
 - The workspace has no `origin` remote configured (`git remote -v` shows nothing, or a name other than `origin`).
-- The repository is on a **self-hosted GitLab instance** (e.g. `gitlab.example.com`) — auto-detection is scoped to `github.com`/`gitlab.com` only.
+- The repository is on a **self-hosted GitLab instance** (e.g. `gitlab.example.com`) and `remoteProjectManager.gitlabHost` isn't set to that host.
 - No workspace folder is open at all.
 
-**Fix:** set `remoteProjectManager.repository` (and `remoteProjectManager.provider`) manually in your settings.
+**Fix:** set `remoteProjectManager.repository` (and `remoteProjectManager.provider`) manually in your settings, or — for a self-hosted GitLab instance — set `remoteProjectManager.gitlabHost` to its hostname (e.g. `gitlab.example.com`) so it's both auto-detected and used as the API host.
 
 ### The picker shows a repository I didn't expect
 

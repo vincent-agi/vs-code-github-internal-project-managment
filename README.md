@@ -78,6 +78,7 @@ See [Issues and Milestones Management](docs/functionals/02-issues-and-milestones
 |---|---|---|---|
 | `remoteProjectManager.provider` | `"github" \| "gitlab"` | `"github"` | Remote platform to connect to. Ignored when the repository is auto-detected from a git remote. |
 | `remoteProjectManager.repository` | `string` | `""` | Repository or project path, e.g. `"owner/repo"`. Leave empty to auto-detect from the workspace's git remotes. |
+| `remoteProjectManager.gitlabHost` | `string` | `""` | Hostname of a self-hosted GitLab instance (e.g. `"gitlab.example.com"`), used to both auto-detect repositories on that host and connect to its API. Leave empty to use gitlab.com. |
 | `remoteProjectManager.cacheTtlSeconds` | `number` | `180` | How long issue/milestone/capability reads are cached before refetching, in seconds. Use the panel's Refresh button to bypass the cache immediately. |
 | `remoteProjectManager.autoBranchOnInProgress` | `boolean` | `true` | Automatically create and check out a git branch when an issue assigned to you moves to "in progress." When off, a suggested branch name is shown instead. |
 | `remoteProjectManager.branchNamePattern` | `string` | `"${type}/${issue_id}-${slug}"` | Pattern for auto-created branch names. Placeholders: `${type}` (inferred from labels), `${issue_id}` (issue number), `${slug}` (sanitized title). |

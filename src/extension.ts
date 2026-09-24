@@ -71,13 +71,18 @@ async function resolveToken(
  * providers depend on (see ADR-0001); the casts here are the single
  * place that bridges the two, kept out of the testable provider classes.
  */
-function buildProvider(providerKind: ProviderKind, repository: string, token: string): IProjectProvider {
+function buildProvider(
+  providerKind: ProviderKind,
+  repository: string,
+  token: string,
+  gitlabHost?: string,
+): IProjectProvider {
   const [owner, repo] = repository.split("/");
   if (providerKind === "github") {
     const octokit = new Octokit({ auth: token });
     return new GithubProvider(octokit.rest as unknown as GithubClient, owner, repo);
   }
-  const gitlab = new Gitlab({ token });
+  const gitlab = new Gitlab(gitlabHost ? { token, host: `https://${gitlabHost}` } : { token });
   return new GitlabProvider(gitlab as unknown as GitlabClient, repository);
 }
 
@@ -115,6 +120,7 @@ async function resolveRepository(): Promise<
   const config = vscode.workspace.getConfiguration("remoteProjectManager");
   const providerKindSetting = config.get<ProviderKind>("provider", "github");
   const repositorySetting = config.get<string>("repository", "");
+  const gitlabHost = config.get<string>("gitlabHost", "") || undefined;
 
   if (repositorySetting.includes("/")) {
     return {
@@ -134,7 +140,7 @@ async function resolveRepository(): Promise<
       remoteUrl: await gitService.getRemoteUrl(folder.uri.fsPath),
     })),
   );
-  const candidates = resolveRepositoryCandidates(remotes);
+  const candidates = resolveRepositoryCandidates(remotes, gitlabHost);
 
   if (candidates.length === 0) {
     return { kind: "none" };
@@ -278,8 +284,12 @@ async function connectProvider(
   repository: string,
   token: string,
   cacheTtlSeconds: number,
+  gitlabHost: string | undefined,
 ): Promise<{ provider: IProjectProvider; currentUser: IAuthenticatedUser }> {
-  const provider = new CachingProjectProvider(buildProvider(providerKind, repository, token), cacheTtlSeconds * 1000);
+  const provider = new CachingProjectProvider(
+    buildProvider(providerKind, repository, token, gitlabHost),
+    cacheTtlSeconds * 1000,
+  );
   const currentUser = await provider.getCurrentUser();
   return { provider, currentUser };
 }
@@ -296,17 +306,18 @@ async function resolveAndConnect(
   repository: string,
   credentialStore: ICredentialStore,
   cacheTtlSeconds: number,
+  gitlabHost: string | undefined,
 ): Promise<{ provider: IProjectProvider; currentUser: IAuthenticatedUser }> {
   const token = await resolveToken(providerKind, credentialStore);
   try {
-    return await connectProvider(providerKind, repository, token, cacheTtlSeconds);
+    return await connectProvider(providerKind, repository, token, cacheTtlSeconds, gitlabHost);
   } catch (error) {
     if (providerKind !== "gitlab" || !isAuthError(error)) {
       throw error;
     }
     await credentialStore.setToken(providerKind, "");
     const freshToken = await resolveToken(providerKind, credentialStore);
-    return connectProvider(providerKind, repository, freshToken, cacheTtlSeconds);
+    return connectProvider(providerKind, repository, freshToken, cacheTtlSeconds, gitlabHost);
   }
 }
 
@@ -322,7 +333,14 @@ async function buildController(
 
   const config = vscode.workspace.getConfiguration("remoteProjectManager");
   const cacheTtlSeconds = config.get<number>("cacheTtlSeconds", 180);
-  const { provider, currentUser } = await resolveAndConnect(providerKind, repository, credentialStore, cacheTtlSeconds);
+  const gitlabHost = config.get<string>("gitlabHost", "") || undefined;
+  const { provider, currentUser } = await resolveAndConnect(
+    providerKind,
+    repository,
+    credentialStore,
+    cacheTtlSeconds,
+    gitlabHost,
+  );
 
   const autoBranchEnabled = config.get<boolean>("autoBranchOnInProgress", true);
   const branchNamePattern = config.get<string>("branchNamePattern", "");
