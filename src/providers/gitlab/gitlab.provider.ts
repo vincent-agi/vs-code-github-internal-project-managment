@@ -29,7 +29,7 @@ export interface GitlabClient {
   Issues: {
     all(params: { projectId: string; scope: "all" }): Promise<readonly RawGitlabIssue[]>;
     show(projectId: string, issueIid: number): Promise<RawGitlabIssue>;
-    create(projectId: string, options: Record<string, unknown>): Promise<RawGitlabIssue>;
+    create(projectId: string, title: string, options: Record<string, unknown>): Promise<RawGitlabIssue>;
     edit(
       projectId: string,
       issueIid: number,
@@ -118,8 +118,7 @@ export class GitlabProvider implements IProjectProvider {
   }
 
   async createIssue(input: CreateIssueInput): Promise<IIssue> {
-    const raw = await this.client.Issues.create(this.projectPath, {
-      title: input.title,
+    const raw = await this.client.Issues.create(this.projectPath, input.title, {
       description: input.body,
       labels: input.labels,
       assignee_usernames: input.assignees,

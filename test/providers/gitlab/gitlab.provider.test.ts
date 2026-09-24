@@ -93,7 +93,8 @@ describe("GitlabProvider.createIssue", () => {
 
     expect(create).toHaveBeenCalledWith(
       "acme/widgets",
-      expect.objectContaining({ title: "Bug", description: "desc" }),
+      "Bug",
+      expect.objectContaining({ description: "desc" }),
     );
     expect(issue.number).toBe(42);
   });
