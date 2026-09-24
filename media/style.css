@@ -323,7 +323,10 @@ body {
 }
 
 .toast-success {
-  background-color: var(--vscode-statusBarItem-prominentBackground, var(--vscode-button-background));
+  background-color: var(
+    --vscode-statusBarItem-prominentBackground,
+    var(--vscode-button-background)
+  );
   color: var(--vscode-button-foreground);
   border: 1px solid var(--vscode-button-border, transparent);
 }

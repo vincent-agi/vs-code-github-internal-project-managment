@@ -97,13 +97,19 @@ type InboundMessage =
   | {
       type: "updateIssue";
       id: string;
-      patch: Partial<Pick<IssueView, "title" | "body" | "state" | "assignees" | "labels" | "milestoneId">>;
+      patch: Partial<
+        Pick<IssueView, "title" | "body" | "state" | "assignees" | "labels" | "milestoneId">
+      >;
     }
   | {
       type: "createMilestone";
       input: { title: string; description?: string; dueOn?: string | null };
     }
-  | { type: "updateMilestone"; id: string; patch: Partial<Pick<MilestoneView, "title" | "description" | "state">> }
+  | {
+      type: "updateMilestone";
+      id: string;
+      patch: Partial<Pick<MilestoneView, "title" | "description" | "state">>;
+    }
   | { type: "createBranchForIssue"; id: string };
 
 declare function acquireVsCodeApi(): {
@@ -212,14 +218,19 @@ function renderIssueList(): void {
     if (issueMilestoneFilter && candidate.milestoneId !== issueMilestoneFilter) {
       return false;
     }
-    if (query && !candidate.title.toLowerCase().includes(query) && !candidate.body.toLowerCase().includes(query)) {
+    if (
+      query &&
+      !candidate.title.toLowerCase().includes(query) &&
+      !candidate.body.toLowerCase().includes(query)
+    ) {
       return false;
     }
     if (issueLabelFilter && !candidate.labels.includes(issueLabelFilter)) {
       return false;
     }
     if (issueAssigneeFilter) {
-      const wanted = issueAssigneeFilter === "@me" ? currentUser?.username ?? null : issueAssigneeFilter;
+      const wanted =
+        issueAssigneeFilter === "@me" ? (currentUser?.username ?? null) : issueAssigneeFilter;
       if (!wanted || !candidate.assignees.includes(wanted)) {
         return false;
       }
@@ -259,7 +270,10 @@ function renderIssueList(): void {
 function renderNewIssueForm(): void {
   const detail = byId<HTMLDivElement>("issue-detail");
   const milestoneOptions = currentMilestones
-    .map((milestone) => `<option value="${escapeAttr(milestone.id)}">${escapeHtml(milestone.title)}</option>`)
+    .map(
+      (milestone) =>
+        `<option value="${escapeAttr(milestone.id)}">${escapeHtml(milestone.title)}</option>`,
+    )
     .join("");
   detail.innerHTML = `
     <h3>New Issue</h3>
@@ -315,7 +329,9 @@ function renderIssueDetail(): void {
   const isAssignedToMe = currentUser !== null && issue.assignees.includes(currentUser.username);
   const showAssignToMe = canWrite && currentUser !== null && !isAssignedToMe;
   const labelOptions = Array.from(new Set([...currentAvailableLabels, ...issue.labels])).sort();
-  const assigneeOptions = Array.from(new Set([...currentAvailableAssignableUsers, ...issue.assignees])).sort();
+  const assigneeOptions = Array.from(
+    new Set([...currentAvailableAssignableUsers, ...issue.assignees]),
+  ).sort();
   detail.innerHTML = `
     <div class="meta">
       <div class="meta-row"><span class="meta-key">Number</span><span class="meta-value">#${issue.number}</span></div>
@@ -401,19 +417,31 @@ function renderIssueDetail(): void {
       const state = byId<HTMLSelectElement>("issue-state").value as "open" | "closed";
       const body = byId<HTMLTextAreaElement>("issue-body").value;
       const labels = Array.from(
-        byId<HTMLDivElement>("issue-labels-editor").querySelectorAll<HTMLInputElement>("input[type=checkbox]:checked"),
+        byId<HTMLDivElement>("issue-labels-editor").querySelectorAll<HTMLInputElement>(
+          "input[type=checkbox]:checked",
+        ),
       ).map((checkbox) => checkbox.value);
       const assignees = Array.from(
-        byId<HTMLDivElement>("issue-assignees-editor").querySelectorAll<HTMLInputElement>("input[type=checkbox]:checked"),
+        byId<HTMLDivElement>("issue-assignees-editor").querySelectorAll<HTMLInputElement>(
+          "input[type=checkbox]:checked",
+        ),
       ).map((checkbox) => checkbox.value);
       const milestoneId = byId<HTMLSelectElement>("issue-milestone-editor").value || null;
-      post({ type: "updateIssue", id: issue.id, patch: { title, state, body, labels, assignees, milestoneId } });
+      post({
+        type: "updateIssue",
+        id: issue.id,
+        patch: { title, state, body, labels, assignees, milestoneId },
+      });
     });
 
     if (showAssignToMe && currentUser !== null) {
       const username = currentUser.username;
       document.getElementById("issue-assign-to-me")?.addEventListener("click", () => {
-        post({ type: "updateIssue", id: issue.id, patch: { assignees: [...issue.assignees, username] } });
+        post({
+          type: "updateIssue",
+          id: issue.id,
+          patch: { assignees: [...issue.assignees, username] },
+        });
       });
     }
   }
@@ -431,7 +459,9 @@ function renderMilestoneList(): void {
     const item = document.createElement("div");
     item.className = "item" + (milestone.id === selectedMilestoneId ? " selected" : "");
     const stateClass = milestone.state === "closed" ? " state-closed" : "";
-    const due = milestone.dueOn ? `<span class="due">Due ${formatDate(milestone.dueOn)}</span>` : "";
+    const due = milestone.dueOn
+      ? `<span class="due">Due ${formatDate(milestone.dueOn)}</span>`
+      : "";
     item.innerHTML = `<span class="${stateClass}">${escapeHtml(milestone.title)}</span>${due}`;
     item.addEventListener("click", () => {
       selectedMilestoneId = milestone.id;
@@ -595,7 +625,9 @@ function renderIssueAssigneeFilterOptions(): void {
   const usernames = currentAvailableAssignableUsers;
   select.innerHTML =
     `<option value="">All assignees</option><option value="@me">Assigned to me</option>` +
-    usernames.map((username) => `<option value="${escapeAttr(username)}">${escapeHtml(username)}</option>`).join("");
+    usernames
+      .map((username) => `<option value="${escapeAttr(username)}">${escapeHtml(username)}</option>`)
+      .join("");
   select.value = previousValue === "@me" || usernames.includes(previousValue) ? previousValue : "";
   issueAssigneeFilter = select.value || null;
 }
@@ -644,7 +676,9 @@ byId<HTMLSelectElement>("milestone-state-filter").addEventListener("change", (ev
   milestoneListPageSize = LIST_PAGE_SIZE;
   renderMilestoneList();
 });
-byId<HTMLButtonElement>("tab-milestones").addEventListener("click", () => setActiveTab("milestones"));
+byId<HTMLButtonElement>("tab-milestones").addEventListener("click", () =>
+  setActiveTab("milestones"),
+);
 byId<HTMLButtonElement>("issue-new").addEventListener("click", () => {
   selectedIssueId = null;
   showNewIssueForm = true;
@@ -666,7 +700,11 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
   if (message.type === "state") {
     clearError();
     byId<HTMLDivElement>("repository-picker").hidden = true;
-    setActiveTab(byId<HTMLButtonElement>("tab-milestones").classList.contains("active") ? "milestones" : "issues");
+    setActiveTab(
+      byId<HTMLButtonElement>("tab-milestones").classList.contains("active")
+        ? "milestones"
+        : "issues",
+    );
 
     const snapshot: StateSnapshot = {
       issues: message.issues,

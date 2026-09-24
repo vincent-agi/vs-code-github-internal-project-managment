@@ -6,13 +6,13 @@ The extension does not implement a request-budget rate limiter. Instead, it cach
 
 **How the cache behaves:**
 
-| Situation | Behavior |
-|---|---|
-| Reading issues/milestones/capabilities within the TTL window | Served from cache, no API call. |
-| TTL expires | Next read refetches from the API and repopulates the cache. |
-| You edit an issue or milestone in the panel | The relevant cache (issues or milestones) is invalidated immediately — you always see your own edit right away, never a stale cached version. |
-| You click **Refresh** in the panel toolbar | Bypasses the cache for that one fetch, regardless of TTL. |
-| Someone else edits the same repository elsewhere | Not reflected until the TTL expires or you click **Refresh**. |
+| Situation                                                    | Behavior                                                                                                                                      |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reading issues/milestones/capabilities within the TTL window | Served from cache, no API call.                                                                                                               |
+| TTL expires                                                  | Next read refetches from the API and repopulates the cache.                                                                                   |
+| You edit an issue or milestone in the panel                  | The relevant cache (issues or milestones) is invalidated immediately — you always see your own edit right away, never a stale cached version. |
+| You click **Refresh** in the panel toolbar                   | Bypasses the cache for that one fetch, regardless of TTL.                                                                                     |
+| Someone else edits the same repository elsewhere             | Not reflected until the TTL expires or you click **Refresh**.                                                                                 |
 
 **If you need fresher data more often:** lower `remoteProjectManager.cacheTtlSeconds` (set to `0` to effectively disable caching — every read hits the API). Be aware this increases API call volume and can bring you closer to GitHub/GitLab's own rate limits.
 
@@ -29,7 +29,7 @@ The extension does not implement a request-budget rate limiter. Instead, it cach
 
 If your GitLab PAT expired, was revoked, or you want to switch accounts:
 
-1. Run **Remote Project Manager: Sign Out of GitLab** from the Command Palette. This clears the stored token from `SecretStorage` immediately — reloading the window or resetting the extension host does *not* clear it by itself, since it isn't held in memory.
+1. Run **Remote Project Manager: Sign Out of GitLab** from the Command Palette. This clears the stored token from `SecretStorage` immediately — reloading the window or resetting the extension host does _not_ clear it by itself, since it isn't held in memory.
 2. The next time the panel connects to a GitLab repository, you'll be prompted for a new Personal Access Token.
 3. Going forward, always confirm the token's scope matches [Authentication and Security](01-authentication-and-security.md#gitlab-personal-access-token-in-secretstorage) before saving it.
 
@@ -64,7 +64,7 @@ Check, in order:
 
 1. Is `remoteProjectManager.autoBranchOnInProgress` `true`?
 2. Are you actually one of the issue's assignees (case doesn't matter, but the username must match exactly)?
-3. Did the "in-progress" label change happen *before* your last panel refresh? The extension only detects a transition on the fetch *after* the label changes — click **Refresh** if you just added the label externally. See [Issues and Milestones Management](02-issues-and-milestones-management.md#moving-an-issue-to-in-progress).
+3. Did the "in-progress" label change happen _before_ your last panel refresh? The extension only detects a transition on the fetch _after_ the label changes — click **Refresh** if you just added the label externally. See [Issues and Milestones Management](02-issues-and-milestones-management.md#moving-an-issue-to-in-progress).
 4. Is the repository resolved to a workspace folder? An explicit `remoteProjectManager.repository` setting with no workspace folder open has no `cwd` to run git in — you'll see the suggestion message instead of automatic creation.
 
 ## Repository Detection Issues

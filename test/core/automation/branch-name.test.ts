@@ -45,7 +45,9 @@ describe("slugify", () => {
   });
 
   it("truncates to 50 characters without a trailing hyphen", () => {
-    const slug = slugify("This is an extremely long issue title that goes on and on and on past the limit");
+    const slug = slugify(
+      "This is an extremely long issue title that goes on and on and on past the limit",
+    );
     expect(slug.length).toBeLessThanOrEqual(50);
     expect(slug.endsWith("-")).toBe(false);
   });

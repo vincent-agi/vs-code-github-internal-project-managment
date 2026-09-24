@@ -53,7 +53,7 @@ matches `github.com`/`gitlab.com` hosts. Precedence:
 1. An explicit `remoteProjectManager.repository` setting always wins —
    no detection runs.
 2. Exactly one detected candidate is used automatically.
-3. Multiple candidates: the panel opens, and a picker renders *inside*
+3. Multiple candidates: the panel opens, and a picker renders _inside_
    the webview (`repositoryOptions` / `selectRepository` messages) per
    the spec, rather than a native `QuickPick`. No token is requested and
    no provider is built until the user picks — avoids an unnecessary

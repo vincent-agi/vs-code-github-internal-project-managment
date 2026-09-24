@@ -50,7 +50,7 @@ form has no labels field, so the label is always added externally
 (directly on GitHub/GitLab), and both the "before" and "after" fetches
 in that flow happen back-to-back at Save time — long after the label was
 already added, so neither side ever differs. Diffing against the last
-*sent* snapshot instead means the transition is caught on whatever
+_sent_ snapshot instead means the transition is caught on whatever
 `sendState()` call happens next — a manual Refresh, or the state refresh
 after any other edit. `PanelController` keeps a `Map<string, IIssue>` of
 the last snapshot for exactly this purpose. The first-ever `sendState()`
@@ -88,7 +88,7 @@ automation will look familiar to developers already using those tools.
   the hook; this is hardcoded rather than made configurable. Revisit if
   teams need a different label vocabulary.
 - Because detection diffs against the last snapshot this controller
-  sent, a transition is only observed on the *next* fetch after the
+  sent, a transition is only observed on the _next_ fetch after the
   underlying change — there can be a short delay between an external
   label change and the extension noticing it, bounded by how often the
   panel refetches (see `remoteProjectManager.cacheTtlSeconds` and the

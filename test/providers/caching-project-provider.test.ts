@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CachingProjectProvider } from "../../src/providers/caching-project-provider";
 import type { IIssue } from "../../src/core/models/issue.model";
 import type { IMilestone } from "../../src/core/models/milestone.model";
-import type { IProjectProvider, ProviderCapabilities } from "../../src/core/providers/project-provider.interface";
+import type {
+  IProjectProvider,
+  ProviderCapabilities,
+} from "../../src/core/providers/project-provider.interface";
 
 beforeEach(() => {
   vi.useFakeTimers();

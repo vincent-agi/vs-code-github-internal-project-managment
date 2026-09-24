@@ -115,7 +115,9 @@ describe("GithubProvider.createIssue", () => {
   it("resolves the milestone_number from milestoneId and sends it", async () => {
     const create = vi.fn().mockResolvedValue({ data: rawIssue });
     const listMilestones = vi.fn().mockResolvedValue({ data: [rawMilestone] });
-    const client = makeClient({ issues: { create, listMilestones } as unknown as GithubClient["issues"] });
+    const client = makeClient({
+      issues: { create, listMilestones } as unknown as GithubClient["issues"],
+    });
     const provider = new GithubProvider(client, "acme", "widgets");
 
     await provider.createIssue({ title: "Bug", body: "desc", milestoneId: "7" });
@@ -133,7 +135,12 @@ describe("GithubProvider.updateIssue", () => {
     const issue = await provider.updateIssue("acme/widgets#42", { state: "closed" });
 
     expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({ owner: "acme", repo: "widgets", issue_number: 42, state: "closed" }),
+      expect.objectContaining({
+        owner: "acme",
+        repo: "widgets",
+        issue_number: 42,
+        state: "closed",
+      }),
     );
     expect(issue.state).toBe("closed");
   });
@@ -142,7 +149,9 @@ describe("GithubProvider.updateIssue", () => {
 describe("GithubProvider.listMilestones", () => {
   it("maps milestones", async () => {
     const client = makeClient({
-      issues: { listMilestones: vi.fn().mockResolvedValue({ data: [rawMilestone] }) } as unknown as GithubClient["issues"],
+      issues: {
+        listMilestones: vi.fn().mockResolvedValue({ data: [rawMilestone] }),
+      } as unknown as GithubClient["issues"],
     });
     const provider = new GithubProvider(client, "acme", "widgets");
 
@@ -165,7 +174,11 @@ describe("GithubProvider.listMilestones", () => {
   });
 
   it("paginates through every page instead of only the first 100", async () => {
-    const fullPage = Array.from({ length: 100 }, (_, i) => ({ ...rawMilestone, id: i + 1, number: i + 1 }));
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({
+      ...rawMilestone,
+      id: i + 1,
+      number: i + 1,
+    }));
     const listMilestones = vi
       .fn()
       .mockResolvedValueOnce({ data: fullPage })
@@ -183,7 +196,9 @@ describe("GithubProvider.listMilestones", () => {
 describe("GithubProvider.getMilestone", () => {
   it("finds the milestone by domain id among all milestones", async () => {
     const client = makeClient({
-      issues: { listMilestones: vi.fn().mockResolvedValue({ data: [rawMilestone] }) } as unknown as GithubClient["issues"],
+      issues: {
+        listMilestones: vi.fn().mockResolvedValue({ data: [rawMilestone] }),
+      } as unknown as GithubClient["issues"],
     });
     const provider = new GithubProvider(client, "acme", "widgets");
 
@@ -194,7 +209,9 @@ describe("GithubProvider.getMilestone", () => {
 
   it("throws when no milestone matches the id", async () => {
     const client = makeClient({
-      issues: { listMilestones: vi.fn().mockResolvedValue({ data: [] }) } as unknown as GithubClient["issues"],
+      issues: {
+        listMilestones: vi.fn().mockResolvedValue({ data: [] }),
+      } as unknown as GithubClient["issues"],
     });
     const provider = new GithubProvider(client, "acme", "widgets");
 
@@ -220,7 +237,9 @@ describe("GithubProvider.createMilestone", () => {
 describe("GithubProvider.updateMilestone", () => {
   it("resolves the milestone_number from the domain id, then updates", async () => {
     const listMilestones = vi.fn().mockResolvedValue({ data: [rawMilestone] });
-    const updateMilestone = vi.fn().mockResolvedValue({ data: { ...rawMilestone, state: "closed" } });
+    const updateMilestone = vi
+      .fn()
+      .mockResolvedValue({ data: { ...rawMilestone, state: "closed" } });
     const client = makeClient({
       issues: { listMilestones, updateMilestone } as unknown as GithubClient["issues"],
     });
@@ -229,7 +248,12 @@ describe("GithubProvider.updateMilestone", () => {
     const milestone = await provider.updateMilestone("7", { state: "closed" });
 
     expect(updateMilestone).toHaveBeenCalledWith(
-      expect.objectContaining({ owner: "acme", repo: "widgets", milestone_number: 3, state: "closed" }),
+      expect.objectContaining({
+        owner: "acme",
+        repo: "widgets",
+        milestone_number: 3,
+        state: "closed",
+      }),
     );
     expect(milestone.state).toBe("closed");
   });
@@ -237,8 +261,12 @@ describe("GithubProvider.updateMilestone", () => {
 
 describe("GithubProvider.listLabels", () => {
   it("returns label names", async () => {
-    const listLabelsForRepo = vi.fn().mockResolvedValue({ data: [{ name: "bug" }, { name: "docs" }] });
-    const client = makeClient({ issues: { listLabelsForRepo } as unknown as GithubClient["issues"] });
+    const listLabelsForRepo = vi
+      .fn()
+      .mockResolvedValue({ data: [{ name: "bug" }, { name: "docs" }] });
+    const client = makeClient({
+      issues: { listLabelsForRepo } as unknown as GithubClient["issues"],
+    });
     const provider = new GithubProvider(client, "acme", "widgets");
 
     const labels = await provider.listLabels();
@@ -252,7 +280,9 @@ describe("GithubProvider.listLabels", () => {
       .fn()
       .mockResolvedValueOnce({ data: fullPage })
       .mockResolvedValueOnce({ data: [{ name: "last" }] });
-    const client = makeClient({ issues: { listLabelsForRepo } as unknown as GithubClient["issues"] });
+    const client = makeClient({
+      issues: { listLabelsForRepo } as unknown as GithubClient["issues"],
+    });
     const provider = new GithubProvider(client, "acme", "widgets");
 
     const labels = await provider.listLabels();
@@ -289,7 +319,9 @@ describe("GithubProvider.getCurrentUser", () => {
 
 describe("GithubProvider.getCapabilities", () => {
   it("maps push permission to write capability", async () => {
-    const get = vi.fn().mockResolvedValue({ data: { permissions: { pull: true, push: true, admin: false } } });
+    const get = vi
+      .fn()
+      .mockResolvedValue({ data: { permissions: { pull: true, push: true, admin: false } } });
     const client = makeClient({ repos: { get } as unknown as GithubClient["repos"] });
     const provider = new GithubProvider(client, "acme", "widgets");
 
@@ -304,7 +336,9 @@ describe("GithubProvider.getCapabilities", () => {
   });
 
   it("maps missing push permission to read-only", async () => {
-    const get = vi.fn().mockResolvedValue({ data: { permissions: { pull: true, push: false, admin: false } } });
+    const get = vi
+      .fn()
+      .mockResolvedValue({ data: { permissions: { pull: true, push: false, admin: false } } });
     const client = makeClient({ repos: { get } as unknown as GithubClient["repos"] });
     const provider = new GithubProvider(client, "acme", "widgets");
 

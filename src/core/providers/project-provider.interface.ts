@@ -102,8 +102,6 @@ export function assertCanWrite(
   permission: "canWriteIssues" | "canWriteMilestones",
 ): void {
   if (!capabilities[permission]) {
-    throw new Error(
-      `Operation requires '${permission}', but the active account does not have it.`,
-    );
+    throw new Error(`Operation requires '${permission}', but the active account does not have it.`);
   }
 }

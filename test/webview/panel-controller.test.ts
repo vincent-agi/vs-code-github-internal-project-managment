@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { PanelController } from "../../src/webview/panel-controller";
-import type { IProjectProvider, ProviderCapabilities } from "../../src/core/providers/project-provider.interface";
+import type {
+  IProjectProvider,
+  ProviderCapabilities,
+} from "../../src/core/providers/project-provider.interface";
 import type { IIssue } from "../../src/core/models/issue.model";
 import type { IMilestone } from "../../src/core/models/milestone.model";
 
@@ -107,7 +110,11 @@ describe("PanelController.handleMessage 'updateIssue'", () => {
     const postMessage = vi.fn();
     const controller = new PanelController(provider, postMessage);
 
-    await controller.handleMessage({ type: "updateIssue", id: issue.id, patch: { state: "closed" } });
+    await controller.handleMessage({
+      type: "updateIssue",
+      id: issue.id,
+      patch: { state: "closed" },
+    });
 
     expect(provider.updateIssue).toHaveBeenCalledWith(issue.id, { state: "closed" });
     expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "state" }));
@@ -118,7 +125,11 @@ describe("PanelController.handleMessage 'updateIssue'", () => {
     const postMessage = vi.fn();
     const controller = new PanelController(provider, postMessage);
 
-    await controller.handleMessage({ type: "updateIssue", id: issue.id, patch: { state: "closed" } });
+    await controller.handleMessage({
+      type: "updateIssue",
+      id: issue.id,
+      patch: { state: "closed" },
+    });
 
     expect(provider.updateIssue).not.toHaveBeenCalled();
     expect(postMessage).toHaveBeenCalledWith({
@@ -147,7 +158,11 @@ describe("PanelController.handleMessage 'updateMilestone'", () => {
     const postMessage = vi.fn();
     const controller = new PanelController(provider, postMessage);
 
-    await controller.handleMessage({ type: "updateMilestone", id: milestone.id, patch: { state: "closed" } });
+    await controller.handleMessage({
+      type: "updateMilestone",
+      id: milestone.id,
+      patch: { state: "closed" },
+    });
 
     expect(provider.updateMilestone).not.toHaveBeenCalled();
     expect(postMessage).toHaveBeenCalledWith({
@@ -161,7 +176,9 @@ describe("PanelController.handleMessage 'createBranchForIssue'", () => {
   it("looks up the issue and forwards it to onCreateBranchRequest, toasting the result", async () => {
     const provider = makeProvider(fullAccess);
     const postMessage = vi.fn();
-    const onCreateBranchRequest = vi.fn().mockResolvedValue("Switched to new branch 'issue/1-bug'.");
+    const onCreateBranchRequest = vi
+      .fn()
+      .mockResolvedValue("Switched to new branch 'issue/1-bug'.");
     const controller = new PanelController(provider, postMessage, undefined, onCreateBranchRequest);
 
     await controller.handleMessage({ type: "requestState" });
@@ -169,7 +186,10 @@ describe("PanelController.handleMessage 'createBranchForIssue'", () => {
     await controller.handleMessage({ type: "createBranchForIssue", id: issue.id });
 
     expect(onCreateBranchRequest).toHaveBeenCalledWith(issue);
-    expect(postMessage).toHaveBeenCalledWith({ type: "actionSuccess", message: "Switched to new branch 'issue/1-bug'." });
+    expect(postMessage).toHaveBeenCalledWith({
+      type: "actionSuccess",
+      message: "Switched to new branch 'issue/1-bug'.",
+    });
   });
 
   it("stays silent when onCreateBranchRequest resolves null (user cancelled)", async () => {
@@ -202,7 +222,11 @@ describe("PanelController.handleMessage 'createBranchForIssue'", () => {
   it("reports an error when onCreateBranchRequest throws", async () => {
     const provider = makeProvider(fullAccess);
     const postMessage = vi.fn();
-    const onCreateBranchRequest = vi.fn().mockRejectedValue(new Error("No workspace folder resolved for this repository; cannot create a branch."));
+    const onCreateBranchRequest = vi
+      .fn()
+      .mockRejectedValue(
+        new Error("No workspace folder resolved for this repository; cannot create a branch."),
+      );
     const controller = new PanelController(provider, postMessage, undefined, onCreateBranchRequest);
 
     await controller.handleMessage({ type: "requestState" });
@@ -237,12 +261,24 @@ describe("PanelController issue transition hook", () => {
     // Establishes the baseline snapshot (open, no labels).
     await controller.handleMessage({ type: "requestState" });
 
-    (provider.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValue({ ...issue, state: "closed" });
-    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([{ ...issue, state: "closed" }]);
+    (provider.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...issue,
+      state: "closed",
+    });
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { ...issue, state: "closed" },
+    ]);
 
-    await controller.handleMessage({ type: "updateIssue", id: issue.id, patch: { state: "closed" } });
+    await controller.handleMessage({
+      type: "updateIssue",
+      id: issue.id,
+      patch: { state: "closed" },
+    });
 
-    expect(onIssueTransition).toHaveBeenCalledWith(expect.objectContaining({ state: "closed" }), "closed");
+    expect(onIssueTransition).toHaveBeenCalledWith(
+      expect.objectContaining({ state: "closed" }),
+      "closed",
+    );
   });
 
   it("detects a label added externally between two state fetches (e.g. via manual Refresh)", async () => {
@@ -289,10 +325,19 @@ describe("PanelController issue transition hook", () => {
 
     await controller.handleMessage({ type: "requestState" });
 
-    (provider.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValue({ ...issue, title: "Renamed" });
-    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([{ ...issue, title: "Renamed" }]);
+    (provider.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...issue,
+      title: "Renamed",
+    });
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { ...issue, title: "Renamed" },
+    ]);
 
-    await controller.handleMessage({ type: "updateIssue", id: issue.id, patch: { title: "Renamed" } });
+    await controller.handleMessage({
+      type: "updateIssue",
+      id: issue.id,
+      patch: { title: "Renamed" },
+    });
 
     expect(onIssueTransition).not.toHaveBeenCalled();
   });
@@ -301,10 +346,18 @@ describe("PanelController issue transition hook", () => {
 describe("PanelController new-assignment hook", () => {
   it("does not notify on the very first state fetch (no baseline to diff against)", async () => {
     const provider = makeProvider(fullAccess);
-    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([{ ...issue, assignees: ["octocat"] }]);
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { ...issue, assignees: ["octocat"] },
+    ]);
     const postMessage = vi.fn();
     const onNewAssignment = vi.fn();
-    const controller = new PanelController(provider, postMessage, undefined, undefined, onNewAssignment);
+    const controller = new PanelController(
+      provider,
+      postMessage,
+      undefined,
+      undefined,
+      onNewAssignment,
+    );
 
     await controller.handleMessage({ type: "requestState" });
 
@@ -315,26 +368,44 @@ describe("PanelController new-assignment hook", () => {
     const provider = makeProvider(fullAccess);
     const postMessage = vi.fn();
     const onNewAssignment = vi.fn();
-    const controller = new PanelController(provider, postMessage, undefined, undefined, onNewAssignment);
+    const controller = new PanelController(
+      provider,
+      postMessage,
+      undefined,
+      undefined,
+      onNewAssignment,
+    );
 
     // Baseline: unassigned.
     await controller.handleMessage({ type: "requestState" });
 
-    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([{ ...issue, assignees: ["octocat"] }]);
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { ...issue, assignees: ["octocat"] },
+    ]);
     await controller.handleMessage({ type: "requestState", forceRefresh: true });
 
-    expect(onNewAssignment).toHaveBeenCalledWith(expect.objectContaining({ assignees: ["octocat"] }));
+    expect(onNewAssignment).toHaveBeenCalledWith(
+      expect.objectContaining({ assignees: ["octocat"] }),
+    );
   });
 
   it("does not notify when a different user is assigned", async () => {
     const provider = makeProvider(fullAccess);
     const postMessage = vi.fn();
     const onNewAssignment = vi.fn();
-    const controller = new PanelController(provider, postMessage, undefined, undefined, onNewAssignment);
+    const controller = new PanelController(
+      provider,
+      postMessage,
+      undefined,
+      undefined,
+      onNewAssignment,
+    );
 
     await controller.handleMessage({ type: "requestState" });
 
-    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([{ ...issue, assignees: ["someone-else"] }]);
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { ...issue, assignees: ["someone-else"] },
+    ]);
     await controller.handleMessage({ type: "requestState", forceRefresh: true });
 
     expect(onNewAssignment).not.toHaveBeenCalled();
@@ -342,10 +413,18 @@ describe("PanelController new-assignment hook", () => {
 
   it("does not notify when the user was already assigned", async () => {
     const provider = makeProvider(fullAccess);
-    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([{ ...issue, assignees: ["octocat"] }]);
+    (provider.listIssues as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { ...issue, assignees: ["octocat"] },
+    ]);
     const postMessage = vi.fn();
     const onNewAssignment = vi.fn();
-    const controller = new PanelController(provider, postMessage, undefined, undefined, onNewAssignment);
+    const controller = new PanelController(
+      provider,
+      postMessage,
+      undefined,
+      undefined,
+      onNewAssignment,
+    );
 
     await controller.handleMessage({ type: "requestState" });
     onNewAssignment.mockClear();

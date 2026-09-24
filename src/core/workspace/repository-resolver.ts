@@ -75,7 +75,9 @@ export function parseGitRemoteUrl(rawUrl: string, gitlabHost?: string): ParsedRe
   const [, host, path] = scpMatch;
   const parsedPath = parsePath(path);
   const provider = parsedPath && mapHostToProvider(host, gitlabHost);
-  return provider && parsedPath ? { provider, repository: `${parsedPath.owner}/${parsedPath.repo}` } : null;
+  return provider && parsedPath
+    ? { provider, repository: `${parsedPath.owner}/${parsedPath.repo}` }
+    : null;
 }
 
 /**

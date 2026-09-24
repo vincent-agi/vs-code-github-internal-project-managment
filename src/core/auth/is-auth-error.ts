@@ -8,7 +8,11 @@ export function isAuthError(error: unknown): boolean {
   if (typeof error !== "object" || error === null) {
     return false;
   }
-  const candidate = error as { status?: unknown; response?: { status?: unknown }; message?: unknown };
+  const candidate = error as {
+    status?: unknown;
+    response?: { status?: unknown };
+    message?: unknown;
+  };
   if (candidate.status === 401 || candidate.response?.status === 401) {
     return true;
   }

@@ -40,7 +40,11 @@ export class CachingProjectProvider implements IProjectProvider {
     this.cache = new TtlCache(ttlMs);
   }
 
-  private async cached<T>(key: string, options: FetchOptions | undefined, fetcher: () => Promise<T>): Promise<T> {
+  private async cached<T>(
+    key: string,
+    options: FetchOptions | undefined,
+    fetcher: () => Promise<T>,
+  ): Promise<T> {
     if (!options?.forceRefresh) {
       const hit = this.cache.get(key) as T | undefined;
       if (hit !== undefined) {

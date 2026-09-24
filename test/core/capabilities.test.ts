@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { assertCanWrite, type ProviderCapabilities } from "../../src/core/providers/project-provider.interface";
+import {
+  assertCanWrite,
+  type ProviderCapabilities,
+} from "../../src/core/providers/project-provider.interface";
 
 const readOnly: ProviderCapabilities = {
   canReadIssues: true,
@@ -21,14 +24,10 @@ describe("assertCanWrite", () => {
   });
 
   it("throws when the account lacks write access", () => {
-    expect(() => assertCanWrite(readOnly, "canWriteIssues")).toThrow(
-      /canWriteIssues/,
-    );
+    expect(() => assertCanWrite(readOnly, "canWriteIssues")).toThrow(/canWriteIssues/);
   });
 
   it("throws for milestones the same way as issues", () => {
-    expect(() => assertCanWrite(readOnly, "canWriteMilestones")).toThrow(
-      /canWriteMilestones/,
-    );
+    expect(() => assertCanWrite(readOnly, "canWriteMilestones")).toThrow(/canWriteMilestones/);
   });
 });

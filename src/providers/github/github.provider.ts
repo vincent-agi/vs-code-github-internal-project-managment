@@ -27,7 +27,13 @@ type RawGithubPullRequestIssue = RawGithubIssue & { pull_request?: unknown };
  */
 export interface GithubClient {
   issues: {
-    listForRepo(params: { owner: string; repo: string; state: "all"; per_page: number; page: number }): Promise<{
+    listForRepo(params: {
+      owner: string;
+      repo: string;
+      state: "all";
+      per_page: number;
+      page: number;
+    }): Promise<{
       data: readonly RawGithubPullRequestIssue[];
     }>;
     get(params: { owner: string; repo: string; issue_number: number }): Promise<{
@@ -35,15 +41,31 @@ export interface GithubClient {
     }>;
     create(params: Record<string, unknown>): Promise<{ data: RawGithubIssue }>;
     update(params: Record<string, unknown>): Promise<{ data: RawGithubIssue }>;
-    listMilestones(params: { owner: string; repo: string; state: "all"; per_page: number; page: number }): Promise<{
+    listMilestones(params: {
+      owner: string;
+      repo: string;
+      state: "all";
+      per_page: number;
+      page: number;
+    }): Promise<{
       data: readonly RawGithubMilestone[];
     }>;
     createMilestone(params: Record<string, unknown>): Promise<{ data: RawGithubMilestone }>;
     updateMilestone(params: Record<string, unknown>): Promise<{ data: RawGithubMilestone }>;
-    listLabelsForRepo(params: { owner: string; repo: string; per_page: number; page: number }): Promise<{
+    listLabelsForRepo(params: {
+      owner: string;
+      repo: string;
+      per_page: number;
+      page: number;
+    }): Promise<{
       data: readonly { name: string }[];
     }>;
-    listAssignees(params: { owner: string; repo: string; per_page: number; page: number }): Promise<{
+    listAssignees(params: {
+      owner: string;
+      repo: string;
+      per_page: number;
+      page: number;
+    }): Promise<{
       data: readonly { login: string }[];
     }>;
   };
@@ -91,7 +113,9 @@ export class GithubProvider implements IProjectProvider {
    * `octokit.paginate`) only ever return a single page, so without this
    * any list past the first 100 items would silently go missing.
    */
-  private async paginateAll<T>(fetchPage: (page: number) => Promise<{ data: readonly T[] }>): Promise<T[]> {
+  private async paginateAll<T>(
+    fetchPage: (page: number) => Promise<{ data: readonly T[] }>,
+  ): Promise<T[]> {
     const items: T[] = [];
     let page = 1;
     for (;;) {
@@ -106,7 +130,13 @@ export class GithubProvider implements IProjectProvider {
 
   private fetchAllRawMilestones(): Promise<RawGithubMilestone[]> {
     return this.paginateAll((page) =>
-      this.client.issues.listMilestones({ owner: this.owner, repo: this.repo, state: "all", per_page: 100, page }),
+      this.client.issues.listMilestones({
+        owner: this.owner,
+        repo: this.repo,
+        state: "all",
+        per_page: 100,
+        page,
+      }),
     );
   }
 
@@ -138,7 +168,13 @@ export class GithubProvider implements IProjectProvider {
 
   async listIssues(_options?: FetchOptions): Promise<readonly IIssue[]> {
     const issues = await this.paginateAll((page) =>
-      this.client.issues.listForRepo({ owner: this.owner, repo: this.repo, state: "all", per_page: 100, page }),
+      this.client.issues.listForRepo({
+        owner: this.owner,
+        repo: this.repo,
+        state: "all",
+        per_page: 100,
+        page,
+      }),
     );
     return issues
       .filter((issue) => !issue.pull_request)
@@ -229,7 +265,12 @@ export class GithubProvider implements IProjectProvider {
 
   async listLabels(_options?: FetchOptions): Promise<readonly string[]> {
     const labels = await this.paginateAll((page) =>
-      this.client.issues.listLabelsForRepo({ owner: this.owner, repo: this.repo, per_page: 100, page }),
+      this.client.issues.listLabelsForRepo({
+        owner: this.owner,
+        repo: this.repo,
+        per_page: 100,
+        page,
+      }),
     );
     return labels.map((label) => label.name);
   }

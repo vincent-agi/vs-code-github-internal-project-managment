@@ -47,19 +47,19 @@ A milestone's detail pane shows a **View issues** button next to its open/closed
 
 For an issue, you can edit:
 
-| Field | Notes |
-|---|---|
-| Title | Free text. |
-| State | `Open` or `Closed`. |
-| Body | Free text (Markdown supported by the remote platform, not rendered locally). |
+| Field | Notes                                                                        |
+| ----- | ---------------------------------------------------------------------------- |
+| Title | Free text.                                                                   |
+| State | `Open` or `Closed`.                                                          |
+| Body  | Free text (Markdown supported by the remote platform, not rendered locally). |
 
 For a milestone, you can edit:
 
-| Field | Notes |
-|---|---|
-| Title | Free text. |
-| State | `Open` or `Closed`. |
-| Description | Free text. |
+| Field       | Notes               |
+| ----------- | ------------------- |
+| Title       | Free text.          |
+| State       | `Open` or `Closed`. |
+| Description | Free text.          |
 
 Click **Save** to push the change to GitHub/GitLab. On success, the panel refetches and shows the updated list and detail immediately.
 

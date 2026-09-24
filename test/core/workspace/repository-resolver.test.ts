@@ -71,21 +71,27 @@ describe("parseGitRemoteUrl", () => {
   });
 
   it("recognizes a self-hosted GitLab host (SSH) when gitlabHost matches", () => {
-    expect(parseGitRemoteUrl("git@gitlab.example.com:acme/widgets.git", "gitlab.example.com")).toEqual({
+    expect(
+      parseGitRemoteUrl("git@gitlab.example.com:acme/widgets.git", "gitlab.example.com"),
+    ).toEqual({
       provider: "gitlab",
       repository: "acme/widgets",
     });
   });
 
   it("recognizes a self-hosted GitLab host (HTTPS) when gitlabHost matches", () => {
-    expect(parseGitRemoteUrl("https://gitlab.example.com/acme/widgets.git", "gitlab.example.com")).toEqual({
+    expect(
+      parseGitRemoteUrl("https://gitlab.example.com/acme/widgets.git", "gitlab.example.com"),
+    ).toEqual({
       provider: "gitlab",
       repository: "acme/widgets",
     });
   });
 
   it("still returns null for a host that doesn't match the configured gitlabHost", () => {
-    expect(parseGitRemoteUrl("https://bitbucket.org/acme/widgets.git", "gitlab.example.com")).toBeNull();
+    expect(
+      parseGitRemoteUrl("https://bitbucket.org/acme/widgets.git", "gitlab.example.com"),
+    ).toBeNull();
   });
 });
 
@@ -106,7 +112,11 @@ describe("resolveRepositoryCandidates", () => {
     const candidates = resolveRepositoryCandidates([
       { folderPath: "/ws/api", folderName: "api", remoteUrl: "git@github.com:acme/api.git" },
       { folderPath: "/ws/no-remote", folderName: "no-remote", remoteUrl: null },
-      { folderPath: "/ws/other", folderName: "other", remoteUrl: "https://bitbucket.org/acme/x.git" },
+      {
+        folderPath: "/ws/other",
+        folderName: "other",
+        remoteUrl: "https://bitbucket.org/acme/x.git",
+      },
     ]);
 
     expect(candidates).toHaveLength(1);
@@ -115,12 +125,23 @@ describe("resolveRepositoryCandidates", () => {
 
   it("recognizes a self-hosted GitLab folder when gitlabHost is passed through", () => {
     const candidates = resolveRepositoryCandidates(
-      [{ folderPath: "/ws/internal", folderName: "internal", remoteUrl: "git@gitlab.example.com:acme/internal.git" }],
+      [
+        {
+          folderPath: "/ws/internal",
+          folderName: "internal",
+          remoteUrl: "git@gitlab.example.com:acme/internal.git",
+        },
+      ],
       "gitlab.example.com",
     );
 
     expect(candidates).toEqual([
-      { folderPath: "/ws/internal", folderName: "internal", provider: "gitlab", repository: "acme/internal" },
+      {
+        folderPath: "/ws/internal",
+        folderName: "internal",
+        provider: "gitlab",
+        repository: "acme/internal",
+      },
     ]);
   });
 });

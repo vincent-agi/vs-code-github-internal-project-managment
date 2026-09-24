@@ -4,12 +4,18 @@ import { Gitlab } from "@gitbeaker/rest";
 import { ensureToken, type ICredentialStore } from "./core/auth/ensure-token";
 import { isAuthError } from "./core/auth/is-auth-error";
 import type { IIssue, ProviderKind } from "./core/models/issue.model";
-import type { IAuthenticatedUser, IProjectProvider } from "./core/providers/project-provider.interface";
+import type {
+  IAuthenticatedUser,
+  IProjectProvider,
+} from "./core/providers/project-provider.interface";
 import { GithubProvider, type GithubClient } from "./providers/github/github.provider";
 import { GitlabProvider, type GitlabClient } from "./providers/gitlab/gitlab.provider";
 import { CachingProjectProvider } from "./providers/caching-project-provider";
 import { SimpleGitService } from "./providers/git/simple-git.service";
-import { resolveRepositoryCandidates, type RepositoryCandidate } from "./core/workspace/repository-resolver";
+import {
+  resolveRepositoryCandidates,
+  type RepositoryCandidate,
+} from "./core/workspace/repository-resolver";
 import { generateBranchName } from "./core/automation/branch-name";
 import { shouldAutoCreateBranch } from "./core/automation/auto-branch-guard";
 import { selectMyOpenIssues, type MyIssueSummary } from "./core/tree/my-issues";
@@ -217,7 +223,10 @@ function reportBranchCreationOutcome(
  * winning when both exist) is placed first so it starts focused/selected.
  * Returns `undefined` if the user backs out.
  */
-async function pickBaseBranch(gitService: SimpleGitService, cwd: string): Promise<string | undefined> {
+async function pickBaseBranch(
+  gitService: SimpleGitService,
+  cwd: string,
+): Promise<string | undefined> {
   const branches = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: "Fetching branches from origin…" },
     async () => {
@@ -230,7 +239,9 @@ async function pickBaseBranch(gitService: SimpleGitService, cwd: string): Promis
   }
 
   const defaultBranch = pickDefaultBaseBranch(branches);
-  const ordered = defaultBranch ? [defaultBranch, ...branches.filter((branch) => branch !== defaultBranch)] : branches;
+  const ordered = defaultBranch
+    ? [defaultBranch, ...branches.filter((branch) => branch !== defaultBranch)]
+    : branches;
 
   return vscode.window.showQuickPick(ordered, {
     title: "Base branch",
@@ -367,18 +378,28 @@ async function buildController(
       }
 
       void branchManager
-        .createBranchForIssue(issue, folderPath, { onDirtyWorkingTree: () => promptDirtyWorkingTree(issue.number) }, pattern)
+        .createBranchForIssue(
+          issue,
+          folderPath,
+          { onDirtyWorkingTree: () => promptDirtyWorkingTree(issue.number) },
+          pattern,
+        )
         .then(reportBranchCreationOutcome);
     },
     (issue) => {
       if (!folderPath) {
-        throw new Error("No workspace folder resolved for this repository; cannot create a branch.");
+        throw new Error(
+          "No workspace folder resolved for this repository; cannot create a branch.",
+        );
       }
       return requestCreateBranch(issue, folderPath, gitService, branchManager, pattern);
     },
     (issue) => {
       void vscode.window
-        .showInformationMessage(`You were assigned to issue #${issue.number}: ${issue.title}`, "Open")
+        .showInformationMessage(
+          `You were assigned to issue #${issue.number}: ${issue.title}`,
+          "Open",
+        )
         .then((choice) => {
           if (choice === "Open") {
             void vscode.commands.executeCommand("remoteProjectManager.openIssueFromTree", issue.id);
@@ -399,7 +420,11 @@ type PendingPanelAction =
   | { readonly kind: "newMilestone" }
   | { readonly kind: "refresh" };
 
-function applyPendingAction(panel: vscode.WebviewPanel, controller: PanelController, action: PendingPanelAction): void {
+function applyPendingAction(
+  panel: vscode.WebviewPanel,
+  controller: PanelController,
+  action: PendingPanelAction,
+): void {
   switch (action.kind) {
     case "selectIssue":
       void panel.webview.postMessage({ type: "selectIssue", id: action.id });
@@ -425,7 +450,10 @@ function applyPendingAction(panel: vscode.WebviewPanel, controller: PanelControl
  * ready — used by the sidebar tree's click-through (#25) and the
  * Command Palette entries (#35).
  */
-async function openPanel(context: vscode.ExtensionContext, pendingAction?: PendingPanelAction): Promise<void> {
+async function openPanel(
+  context: vscode.ExtensionContext,
+  pendingAction?: PendingPanelAction,
+): Promise<void> {
   if (activePanel && activeController) {
     activePanel.reveal();
     if (pendingAction) {
@@ -455,7 +483,13 @@ async function openPanel(context: vscode.ExtensionContext, pendingAction?: Pendi
   if (resolution.kind === "resolved") {
     let controller: PanelController;
     try {
-      controller = await buildController(context, panel, resolution.providerKind, resolution.repository, resolution.folderPath);
+      controller = await buildController(
+        context,
+        panel,
+        resolution.providerKind,
+        resolution.repository,
+        resolution.folderPath,
+      );
     } catch (error) {
       void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
       return;
@@ -496,7 +530,13 @@ async function openPanel(context: vscode.ExtensionContext, pendingAction?: Pendi
         return;
       }
       try {
-        controller = await buildController(context, panel, chosen.provider, chosen.repository, chosen.folderPath);
+        controller = await buildController(
+          context,
+          panel,
+          chosen.provider,
+          chosen.repository,
+          chosen.folderPath,
+        );
       } catch (error) {
         void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
         return;
@@ -532,7 +572,10 @@ class MyIssuesTreeDataProvider implements vscode.TreeDataProvider<MyIssueSummary
   constructor(private readonly context: vscode.ExtensionContext) {}
 
   getTreeItem(element: MyIssueSummary): vscode.TreeItem {
-    const item = new vscode.TreeItem(`#${element.number} ${element.title}`, vscode.TreeItemCollapsibleState.None);
+    const item = new vscode.TreeItem(
+      `#${element.number} ${element.title}`,
+      vscode.TreeItemCollapsibleState.None,
+    );
     item.tooltip = element.url;
     item.iconPath = new vscode.ThemeIcon("issues");
     item.command = {
@@ -556,7 +599,9 @@ class MyIssuesTreeDataProvider implements vscode.TreeDataProvider<MyIssueSummary
     }
   }
 
-  private async getConnection(): Promise<{ provider: IProjectProvider; currentUser: IAuthenticatedUser } | undefined> {
+  private async getConnection(): Promise<
+    { provider: IProjectProvider; currentUser: IAuthenticatedUser } | undefined
+  > {
     if (this.connection) {
       return this.connection;
     }
@@ -612,7 +657,10 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("remoteProjectManager.refresh", () => {
       void openPanel(context, { kind: "refresh" });
     }),
-    vscode.window.registerTreeDataProvider("remoteProjectManager.sidebar", new MyIssuesTreeDataProvider(context)),
+    vscode.window.registerTreeDataProvider(
+      "remoteProjectManager.sidebar",
+      new MyIssuesTreeDataProvider(context),
+    ),
   );
 }
 

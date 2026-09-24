@@ -86,7 +86,7 @@ This is the extension's signature feature: when an issue **assigned to you** is 
 1. On GitHub or GitLab directly (the panel doesn't have a labels editor yet), add the label `in-progress` to an issue that's assigned to you.
 2. Back in VS Code, open the panel and click **Refresh** (or make any edit and save — either one causes the extension to notice the change).
 3. If your working folder has no uncommitted changes, the extension fetches the latest code and switches you to a new branch automatically — you'll see a confirmation message with the branch name.
-4. If you *do* have uncommitted changes, a dialog asks what to do:
+4. If you _do_ have uncommitted changes, a dialog asks what to do:
    - **Stash & Continue** — safely tucks your changes away first (get them back later with `git stash pop`), then proceeds.
    - **Force Switch** — proceeds anyway; git carries your changes over if it can.
    - **Cancel** — does nothing.

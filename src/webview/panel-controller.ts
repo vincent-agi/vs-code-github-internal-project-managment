@@ -101,7 +101,10 @@ export class PanelController {
         }
       }
     } catch (error) {
-      this.postMessage({ type: "error", message: error instanceof Error ? error.message : String(error) });
+      this.postMessage({
+        type: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -136,15 +139,21 @@ export class PanelController {
   }
 
   private async sendState(options?: FetchOptions): Promise<void> {
-    const [capabilities, issues, milestones, currentUser, availableLabels, availableAssignableUsers] =
-      await Promise.all([
-        this.provider.getCapabilities(options),
-        this.provider.listIssues(options),
-        this.provider.listMilestones(options),
-        this.provider.getCurrentUser(),
-        this.provider.listLabels(options),
-        this.provider.listAssignableUsers(options),
-      ]);
+    const [
+      capabilities,
+      issues,
+      milestones,
+      currentUser,
+      availableLabels,
+      availableAssignableUsers,
+    ] = await Promise.all([
+      this.provider.getCapabilities(options),
+      this.provider.listIssues(options),
+      this.provider.listMilestones(options),
+      this.provider.getCurrentUser(),
+      this.provider.listLabels(options),
+      this.provider.listAssignableUsers(options),
+    ]);
     this.detectAndNotifyTransitions(issues, currentUser.username);
     this.postMessage({
       type: "state",

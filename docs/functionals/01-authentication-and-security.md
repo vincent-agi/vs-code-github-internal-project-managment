@@ -44,9 +44,9 @@ GitLab has no built-in VS Code authentication provider, so the extension asks fo
 
 Recommended GitLab PAT scopes:
 
-| Scope | Needed for |
-|---|---|
-| `api` | Full read/write access to issues and milestones (recommended). |
+| Scope      | Needed for                                                                     |
+| ---------- | ------------------------------------------------------------------------------ |
+| `api`      | Full read/write access to issues and milestones (recommended).                 |
 | `read_api` | Read-only. Use this if you only want to view issues/milestones, not edit them. |
 
 ## Security Practices
@@ -59,10 +59,10 @@ Recommended GitLab PAT scopes:
 
 ## What the Extension Can and Cannot Do
 
-| Capability | GitHub | GitLab |
-|---|---|---|
-| Read issues/milestones | Governed by the `repo` scope's read access | Governed by your PAT scope and project role |
-| Write issues/milestones | Governed by the `repo` scope's write access and your repo permissions | Requires **Developer** role or higher on the project |
-| Detect read/write capability automatically | Yes (`getCapabilities()`) | Yes (`getCapabilities()`) |
+| Capability                                 | GitHub                                                                | GitLab                                               |
+| ------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------- |
+| Read issues/milestones                     | Governed by the `repo` scope's read access                            | Governed by your PAT scope and project role          |
+| Write issues/milestones                    | Governed by the `repo` scope's write access and your repo permissions | Requires **Developer** role or higher on the project |
+| Detect read/write capability automatically | Yes (`getCapabilities()`)                                             | Yes (`getCapabilities()`)                            |
 
 The panel calls `getCapabilities()` on load and disables editing controls in the UI when your account is read-only — you'll never see a "successful" edit silently fail due to missing permissions.

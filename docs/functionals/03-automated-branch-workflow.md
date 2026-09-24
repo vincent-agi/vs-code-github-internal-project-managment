@@ -39,11 +39,11 @@ flowchart TD
 
 If your working tree has uncommitted changes when the trigger fires, a modal dialog asks how to proceed:
 
-| Choice | What happens |
-|---|---|
-| **Stash & Continue** | Runs `git stash push -u` (includes untracked files), then continues. Recover your changes later with `git stash pop`. |
-| **Force Switch** | Skips stashing and proceeds straight to fetch/checkout. Git will carry compatible uncommitted changes onto the new branch, or fail with a conflict error if it can't — the extension surfaces that error rather than discarding anything. |
-| **Cancel** | Stops immediately. No git command runs at all. |
+| Choice               | What happens                                                                                                                                                                                                                              |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Stash & Continue** | Runs `git stash push -u` (includes untracked files), then continues. Recover your changes later with `git stash pop`.                                                                                                                     |
+| **Force Switch**     | Skips stashing and proceeds straight to fetch/checkout. Git will carry compatible uncommitted changes onto the new branch, or fail with a conflict error if it can't — the extension surfaces that error rather than discarding anything. |
+| **Cancel**           | Stops immediately. No git command runs at all.                                                                                                                                                                                            |
 
 ### Basing the Branch on an Up-to-Date Default
 
@@ -58,25 +58,25 @@ If none of those exist, branch creation fails with a clear error instead of gues
 
 Configure `remoteProjectManager.branchNamePattern` (default: `${type}/${issue_id}-${slug}`). Three placeholders are supported:
 
-| Placeholder | Meaning | Example |
-|---|---|---|
-| `${type}` | Inferred from the issue's labels (see table below). | `fix` |
-| `${issue_id}` | The issue number. | `42` |
-| `${slug}` | Sanitized issue title. | `panel-does-not-open` |
+| Placeholder   | Meaning                                             | Example               |
+| ------------- | --------------------------------------------------- | --------------------- |
+| `${type}`     | Inferred from the issue's labels (see table below). | `fix`                 |
+| `${issue_id}` | The issue number.                                   | `42`                  |
+| `${slug}`     | Sanitized issue title.                              | `panel-does-not-open` |
 
 Example: issue #42, titled "Panel does not open", labeled `bug`, with the default pattern produces `fix/42-panel-does-not-open`.
 
 ### Type Inference from Labels
 
 | Label (case-insensitive) | `${type}` |
-|---|---|
-| `bug` | `fix` |
-| `enhancement` | `feature` |
-| `feature` | `feature` |
-| `documentation` | `docs` |
-| `docs` | `docs` |
-| `chore` | `chore` |
-| *(no matching label)* | `issue` |
+| ------------------------ | --------- |
+| `bug`                    | `fix`     |
+| `enhancement`            | `feature` |
+| `feature`                | `feature` |
+| `documentation`          | `docs`    |
+| `docs`                   | `docs`    |
+| `chore`                  | `chore`   |
+| _(no matching label)_    | `issue`   |
 
 ### Slug Sanitization Rules
 

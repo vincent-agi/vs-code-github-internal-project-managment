@@ -50,7 +50,10 @@ export function inferBranchType(issue: IIssue): string {
  * Fills `${type}`, `${issue_id}`, and `${slug}` placeholders in a branch
  * name pattern.
  */
-function fillPattern(pattern: string, vars: { type: string; issue_id: string; slug: string }): string {
+function fillPattern(
+  pattern: string,
+  vars: { type: string; issue_id: string; slug: string },
+): string {
   return pattern
     .replace(/\$\{type\}/g, vars.type)
     .replace(/\$\{issue_id\}/g, vars.issue_id)
@@ -70,7 +73,8 @@ export function generateBranchName(issue: IIssue, pattern: string = DEFAULT_PATT
   const issueId = String(issue.number);
 
   if (!slug) {
-    const noSlugPattern = pattern === DEFAULT_PATTERN ? DEFAULT_PATTERN_NO_SLUG : pattern.replace(/-?\$\{slug\}/g, "");
+    const noSlugPattern =
+      pattern === DEFAULT_PATTERN ? DEFAULT_PATTERN_NO_SLUG : pattern.replace(/-?\$\{slug\}/g, "");
     return fillPattern(noSlugPattern, { type, issue_id: issueId, slug: "" });
   }
 

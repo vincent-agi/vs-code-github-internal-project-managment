@@ -51,7 +51,11 @@ describe("BranchManager.createBranchForIssue on a clean tree", () => {
     expect(result).toEqual({ status: "created", branchName: "issue/42-bug-panel-does-not-open" });
     expect(git.fetch).toHaveBeenCalledWith(CWD);
     expect(git.getDefaultBranch).toHaveBeenCalledWith(CWD);
-    expect(git.checkoutNewBranch).toHaveBeenCalledWith(CWD, "issue/42-bug-panel-does-not-open", "main");
+    expect(git.checkoutNewBranch).toHaveBeenCalledWith(
+      CWD,
+      "issue/42-bug-panel-does-not-open",
+      "main",
+    );
   });
 
   it("does not prompt the user when the tree is clean", async () => {
@@ -119,7 +123,11 @@ describe("BranchManager.createBranchForIssue with an explicit base branch", () =
 
     expect(result).toEqual({ status: "created", branchName: "issue/42-bug-panel-does-not-open" });
     expect(git.getDefaultBranch).not.toHaveBeenCalled();
-    expect(git.checkoutNewBranch).toHaveBeenCalledWith(CWD, "issue/42-bug-panel-does-not-open", "develop");
+    expect(git.checkoutNewBranch).toHaveBeenCalledWith(
+      CWD,
+      "issue/42-bug-panel-does-not-open",
+      "develop",
+    );
   });
 });
 
@@ -129,7 +137,12 @@ describe("BranchManager.createBranchForIssue branch name validation", () => {
     const manager = new BranchManager(git);
 
     // A custom pattern that produces a space, which looksLikeValidGitRef rejects.
-    const result = await manager.createBranchForIssue(makeIssue(), CWD, { onDirtyWorkingTree: vi.fn() }, "${type} ${issue_id}");
+    const result = await manager.createBranchForIssue(
+      makeIssue(),
+      CWD,
+      { onDirtyWorkingTree: vi.fn() },
+      "${type} ${issue_id}",
+    );
 
     expect(result.status).toBe("invalid-name");
     expect(git.fetch).not.toHaveBeenCalled();
@@ -139,7 +152,9 @@ describe("BranchManager.createBranchForIssue branch name validation", () => {
     const git = makeGitService({ isValidBranchName: vi.fn().mockResolvedValue(false) });
     const manager = new BranchManager(git);
 
-    const result = await manager.createBranchForIssue(makeIssue(), CWD, { onDirtyWorkingTree: vi.fn() });
+    const result = await manager.createBranchForIssue(makeIssue(), CWD, {
+      onDirtyWorkingTree: vi.fn(),
+    });
 
     expect(result.status).toBe("invalid-name");
     expect(git.fetch).not.toHaveBeenCalled();
@@ -153,7 +168,9 @@ describe("BranchManager.createBranchForIssue error handling", () => {
     });
     const manager = new BranchManager(git);
 
-    const result = await manager.createBranchForIssue(makeIssue(), CWD, { onDirtyWorkingTree: vi.fn() });
+    const result = await manager.createBranchForIssue(makeIssue(), CWD, {
+      onDirtyWorkingTree: vi.fn(),
+    });
 
     expect(result).toEqual({ status: "error", message: "branch already exists" });
   });

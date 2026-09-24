@@ -30,13 +30,21 @@ export interface GitlabClient {
     all(params: { projectId: string; scope: "all" }): Promise<readonly RawGitlabIssue[]>;
     show(projectId: string, issueIid: number): Promise<RawGitlabIssue>;
     create(projectId: string, options: Record<string, unknown>): Promise<RawGitlabIssue>;
-    edit(projectId: string, issueIid: number, options: Record<string, unknown>): Promise<RawGitlabIssue>;
+    edit(
+      projectId: string,
+      issueIid: number,
+      options: Record<string, unknown>,
+    ): Promise<RawGitlabIssue>;
   };
   ProjectMilestones: {
     all(projectId: string): Promise<readonly RawGitlabMilestone[]>;
     show(projectId: string, milestoneId: number): Promise<RawGitlabMilestone>;
     create(projectId: string, options: Record<string, unknown>): Promise<RawGitlabMilestone>;
-    edit(projectId: string, milestoneId: number, options: Record<string, unknown>): Promise<RawGitlabMilestone>;
+    edit(
+      projectId: string,
+      milestoneId: number,
+      options: Record<string, unknown>,
+    ): Promise<RawGitlabMilestone>;
   };
   Labels: {
     all(projectId: string): Promise<readonly { name: string }[]>;
@@ -127,7 +135,11 @@ export class GitlabProvider implements IProjectProvider {
       labels: patch.labels,
       assignee_usernames: patch.assignees,
       milestone_id: patch.milestoneId === undefined ? undefined : patch.milestoneId,
-      state_event: patch.state ? (mapDomainIssueStateToGitlab(patch.state) === "closed" ? "close" : "reopen") : undefined,
+      state_event: patch.state
+        ? mapDomainIssueStateToGitlab(patch.state) === "closed"
+          ? "close"
+          : "reopen"
+        : undefined,
     });
     return mapGitlabIssueToDomain(raw, this.projectPath);
   }

@@ -133,7 +133,9 @@ describe("GitlabProvider.updateIssue", () => {
 describe("GitlabProvider.listMilestones", () => {
   it("maps milestones", async () => {
     const client = makeClient({
-      ProjectMilestones: { all: vi.fn().mockResolvedValue([rawMilestone]) } as unknown as GitlabClient["ProjectMilestones"],
+      ProjectMilestones: {
+        all: vi.fn().mockResolvedValue([rawMilestone]),
+      } as unknown as GitlabClient["ProjectMilestones"],
     });
     const provider = new GitlabProvider(client, "acme/widgets");
 
@@ -159,7 +161,9 @@ describe("GitlabProvider.listMilestones", () => {
 describe("GitlabProvider.getMilestone", () => {
   it("fetches directly by the domain id (GitLab's milestone_id)", async () => {
     const show = vi.fn().mockResolvedValue(rawMilestone);
-    const client = makeClient({ ProjectMilestones: { show } as unknown as GitlabClient["ProjectMilestones"] });
+    const client = makeClient({
+      ProjectMilestones: { show } as unknown as GitlabClient["ProjectMilestones"],
+    });
     const provider = new GitlabProvider(client, "acme/widgets");
 
     const milestone = await provider.getMilestone("7");
@@ -172,7 +176,9 @@ describe("GitlabProvider.getMilestone", () => {
 describe("GitlabProvider.createMilestone", () => {
   it("sends title and maps the response", async () => {
     const create = vi.fn().mockResolvedValue(rawMilestone);
-    const client = makeClient({ ProjectMilestones: { create } as unknown as GitlabClient["ProjectMilestones"] });
+    const client = makeClient({
+      ProjectMilestones: { create } as unknown as GitlabClient["ProjectMilestones"],
+    });
     const provider = new GitlabProvider(client, "acme/widgets");
 
     const milestone = await provider.createMilestone({ title: "v1.0" });
@@ -185,7 +191,9 @@ describe("GitlabProvider.createMilestone", () => {
 describe("GitlabProvider.updateMilestone", () => {
   it("edits directly by the domain id", async () => {
     const edit = vi.fn().mockResolvedValue({ ...rawMilestone, state: "closed" });
-    const client = makeClient({ ProjectMilestones: { edit } as unknown as GitlabClient["ProjectMilestones"] });
+    const client = makeClient({
+      ProjectMilestones: { edit } as unknown as GitlabClient["ProjectMilestones"],
+    });
     const provider = new GitlabProvider(client, "acme/widgets");
 
     const milestone = await provider.updateMilestone("7", { state: "closed" });
@@ -215,7 +223,9 @@ describe("GitlabProvider.listLabels", () => {
 describe("GitlabProvider.listAssignableUsers", () => {
   it("returns member usernames", async () => {
     const all = vi.fn().mockResolvedValue([{ username: "octocat" }]);
-    const client = makeClient({ ProjectMembers: { all } as unknown as GitlabClient["ProjectMembers"] });
+    const client = makeClient({
+      ProjectMembers: { all } as unknown as GitlabClient["ProjectMembers"],
+    });
     const provider = new GitlabProvider(client, "acme/widgets");
 
     const users = await provider.listAssignableUsers();
@@ -239,7 +249,9 @@ describe("GitlabProvider.getCurrentUser", () => {
 
 describe("GitlabProvider.getCapabilities", () => {
   it("maps Developer access (30) and above to write capability", async () => {
-    const show = vi.fn().mockResolvedValue({ permissions: { project_access: { access_level: 30 } } });
+    const show = vi
+      .fn()
+      .mockResolvedValue({ permissions: { project_access: { access_level: 30 } } });
     const client = makeClient({ Projects: { show } as unknown as GitlabClient["Projects"] });
     const provider = new GitlabProvider(client, "acme/widgets");
 
@@ -254,7 +266,9 @@ describe("GitlabProvider.getCapabilities", () => {
   });
 
   it("maps Reporter access (20) to read-only", async () => {
-    const show = vi.fn().mockResolvedValue({ permissions: { project_access: { access_level: 20 } } });
+    const show = vi
+      .fn()
+      .mockResolvedValue({ permissions: { project_access: { access_level: 20 } } });
     const client = makeClient({ Projects: { show } as unknown as GitlabClient["Projects"] });
     const provider = new GitlabProvider(client, "acme/widgets");
 

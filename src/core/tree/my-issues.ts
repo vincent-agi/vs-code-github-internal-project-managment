@@ -17,7 +17,9 @@ export function selectMyOpenIssues(issues: readonly IIssue[], username: string):
   const lowerUsername = username.toLowerCase();
   return issues
     .filter(
-      (issue) => issue.state === "open" && issue.assignees.some((assignee) => assignee.toLowerCase() === lowerUsername),
+      (issue) =>
+        issue.state === "open" &&
+        issue.assignees.some((assignee) => assignee.toLowerCase() === lowerUsername),
     )
     .sort((a, b) => a.number - b.number)
     .map(({ id, number, title, url }) => ({ id, number, title, url }));
