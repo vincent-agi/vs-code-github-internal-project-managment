@@ -108,6 +108,16 @@ describe("generateBranchName", () => {
       "issues/42/fix-bug-panel-does-not-open",
     );
   });
+
+  it("can produce a name starting with '-' for a custom pattern + empty slug (caught by looksLikeValidGitRef, not here)", () => {
+    // ${slug} is not directly preceded by a literal hyphen in this custom
+    // pattern, so the no-slug cleanup (which only strips a hyphen *before*
+    // ${slug}) can't remove the one that follows it once ${slug} itself is
+    // dropped. This function's job is just to fill the pattern; rejecting
+    // the unsafe result is looksLikeValidGitRef's job (see its own test).
+    const issue = makeIssue({ title: "!!!" });
+    expect(generateBranchName(issue, "${slug}-${issue_id}")).toBe("-42");
+  });
 });
 
 describe("looksLikeValidGitRef", () => {
@@ -137,5 +147,9 @@ describe("looksLikeValidGitRef", () => {
 
   it("rejects an empty string", () => {
     expect(looksLikeValidGitRef("")).toBe(false);
+  });
+
+  it("rejects a name starting with '-' (git would parse it as a CLI flag)", () => {
+    expect(looksLikeValidGitRef("-42")).toBe(false);
   });
 });

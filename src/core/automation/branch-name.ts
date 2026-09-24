@@ -103,6 +103,12 @@ export function looksLikeValidGitRef(name: string): boolean {
   if (name.startsWith("/") || name.endsWith("/") || name.startsWith(".") || name.endsWith(".")) {
     return false;
   }
+  // A leading "-" is technically a valid ref-name character, but `git
+  // checkout -b <name> ...` and friends parse it as a CLI flag instead
+  // of a branch name — reject it here rather than let it reach git.
+  if (name.startsWith("-")) {
+    return false;
+  }
   if (name.endsWith(".lock")) {
     return false;
   }

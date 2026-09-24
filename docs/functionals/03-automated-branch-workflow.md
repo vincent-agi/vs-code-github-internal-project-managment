@@ -94,7 +94,7 @@ If the title has no usable characters left after sanitization (e.g. a title that
 
 Before ever touching git, the generated name is checked twice:
 
-1. A fast, local pre-check (`looksLikeValidGitRef`) rejects spaces, `..`, `~^:?*[]\`, leading/trailing dots or slashes, and a trailing `.lock` — the most common problems, checked without spawning a process.
+1. A fast, local pre-check (`looksLikeValidGitRef`) rejects spaces, `..`, `~^:?*[]\`, leading/trailing dots or slashes, a leading `-` (which `git checkout -b` would otherwise parse as a flag instead of a branch name — this can happen with a custom `branchNamePattern` that places `${slug}` without a preceding literal hyphen, combined with a title that sanitizes to an empty slug), and a trailing `.lock` — the most common problems, checked without spawning a process.
 2. The authoritative check: `git check-ref-format --branch <name>`, git's own validator.
 
 If either check fails, you see an error naming the invalid branch and pointing at `remoteProjectManager.branchNamePattern` — no git command that could touch your working tree runs.
