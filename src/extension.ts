@@ -379,7 +379,26 @@ async function buildController(
   );
 }
 
-async function openPanel(context: vscode.ExtensionContext): Promise<void> {
+/** The single open panel, if any — see {@link openPanel}. */
+let activePanel: vscode.WebviewPanel | undefined;
+
+/**
+ * Opens the central panel, or reveals it if one is already open instead
+ * of creating a duplicate editor tab and rebuilding the whole
+ * provider/controller (with its own extra token resolution and API
+ * calls). Pass `selectIssueId` to also select a specific issue's detail
+ * pane once the panel is ready — used by the sidebar tree's click-through
+ * (#25).
+ */
+async function openPanel(context: vscode.ExtensionContext, selectIssueId?: string): Promise<void> {
+  if (activePanel) {
+    activePanel.reveal();
+    if (selectIssueId) {
+      void activePanel.webview.postMessage({ type: "selectIssue", id: selectIssueId });
+    }
+    return;
+  }
+
   const resolution = await resolveRepository();
 
   if (resolution.kind === "none") {
@@ -390,6 +409,12 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
   }
 
   const panel = createPanel(context);
+  activePanel = panel;
+  panel.onDidDispose(() => {
+    if (activePanel === panel) {
+      activePanel = undefined;
+    }
+  });
 
   if (resolution.kind === "resolved") {
     let controller: PanelController;
@@ -403,6 +428,9 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
       void controller.handleMessage(message);
     });
     void controller.handleMessage({ type: "requestState" });
+    if (selectIssueId) {
+      void panel.webview.postMessage({ type: "selectIssue", id: selectIssueId });
+    }
     return;
   }
 
@@ -437,6 +465,9 @@ async function openPanel(context: vscode.ExtensionContext): Promise<void> {
         return;
       }
       void controller.handleMessage({ type: "requestState" });
+      if (selectIssueId) {
+        void panel.webview.postMessage({ type: "selectIssue", id: selectIssueId });
+      }
     }
   });
 }
@@ -466,6 +497,11 @@ class MyIssuesTreeDataProvider implements vscode.TreeDataProvider<MyIssueSummary
     const item = new vscode.TreeItem(`#${element.number} ${element.title}`, vscode.TreeItemCollapsibleState.None);
     item.tooltip = element.url;
     item.iconPath = new vscode.ThemeIcon("issues");
+    item.command = {
+      command: "remoteProjectManager.openIssueFromTree",
+      title: "Open Issue",
+      arguments: [element.id],
+    };
     return item;
   }
 
@@ -525,6 +561,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("remoteProjectManager.signOutGitLab", () => {
       void signOutGitLab(context);
+    }),
+    vscode.commands.registerCommand("remoteProjectManager.openIssueFromTree", (issueId: string) => {
+      void openPanel(context, issueId);
     }),
     vscode.window.registerTreeDataProvider("remoteProjectManager.sidebar", new MyIssuesTreeDataProvider(context)),
   );

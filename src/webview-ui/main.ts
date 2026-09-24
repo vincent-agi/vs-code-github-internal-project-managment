@@ -81,6 +81,7 @@ type OutboundMessage =
       availableAssignableUsers: string[];
     }
   | { type: "repositoryOptions"; options: RepositoryOptionView[] }
+  | { type: "selectIssue"; id: string }
   | { type: "actionSuccess"; message: string }
   | { type: "error"; message: string };
 
@@ -695,6 +696,13 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
   } else if (message.type === "repositoryOptions") {
     clearError();
     renderRepositoryPicker(message.options);
+  } else if (message.type === "selectIssue") {
+    selectedIssueId = message.id;
+    showNewIssueForm = false;
+    issueMilestoneFilter = null;
+    setActiveTab("issues");
+    renderIssueList();
+    renderIssueDetail();
   } else if (message.type === "actionSuccess") {
     showToast(message.message);
   } else if (message.type === "error") {
