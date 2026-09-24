@@ -388,22 +388,48 @@ async function buildController(
   );
 }
 
-/** The single open panel, if any — see {@link openPanel}. */
+/** The single open panel and its controller, if any — see {@link openPanel}. */
 let activePanel: vscode.WebviewPanel | undefined;
+let activeController: PanelController | undefined;
+
+/** A deferred UI action to apply once the panel (existing or freshly built) has a ready controller. */
+type PendingPanelAction =
+  | { readonly kind: "selectIssue"; readonly id: string }
+  | { readonly kind: "newIssue" }
+  | { readonly kind: "newMilestone" }
+  | { readonly kind: "refresh" };
+
+function applyPendingAction(panel: vscode.WebviewPanel, controller: PanelController, action: PendingPanelAction): void {
+  switch (action.kind) {
+    case "selectIssue":
+      void panel.webview.postMessage({ type: "selectIssue", id: action.id });
+      return;
+    case "newIssue":
+      void panel.webview.postMessage({ type: "openNewIssueForm" });
+      return;
+    case "newMilestone":
+      void panel.webview.postMessage({ type: "openNewMilestoneForm" });
+      return;
+    case "refresh":
+      void controller.handleMessage({ type: "requestState", forceRefresh: true });
+      return;
+  }
+}
 
 /**
  * Opens the central panel, or reveals it if one is already open instead
  * of creating a duplicate editor tab and rebuilding the whole
  * provider/controller (with its own extra token resolution and API
- * calls). Pass `selectIssueId` to also select a specific issue's detail
- * pane once the panel is ready — used by the sidebar tree's click-through
- * (#25).
+ * calls). Pass `pendingAction` to also apply a deferred UI action (select
+ * an issue, open a create form, or force-refresh) once a controller is
+ * ready — used by the sidebar tree's click-through (#25) and the
+ * Command Palette entries (#35).
  */
-async function openPanel(context: vscode.ExtensionContext, selectIssueId?: string): Promise<void> {
-  if (activePanel) {
+async function openPanel(context: vscode.ExtensionContext, pendingAction?: PendingPanelAction): Promise<void> {
+  if (activePanel && activeController) {
     activePanel.reveal();
-    if (selectIssueId) {
-      void activePanel.webview.postMessage({ type: "selectIssue", id: selectIssueId });
+    if (pendingAction) {
+      applyPendingAction(activePanel, activeController, pendingAction);
     }
     return;
   }
@@ -422,6 +448,7 @@ async function openPanel(context: vscode.ExtensionContext, selectIssueId?: strin
   panel.onDidDispose(() => {
     if (activePanel === panel) {
       activePanel = undefined;
+      activeController = undefined;
     }
   });
 
@@ -433,12 +460,13 @@ async function openPanel(context: vscode.ExtensionContext, selectIssueId?: strin
       void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
       return;
     }
+    activeController = controller;
     panel.webview.onDidReceiveMessage((message: InboundMessage) => {
       void controller.handleMessage(message);
     });
     void controller.handleMessage({ type: "requestState" });
-    if (selectIssueId) {
-      void panel.webview.postMessage({ type: "selectIssue", id: selectIssueId });
+    if (pendingAction) {
+      applyPendingAction(panel, controller, pendingAction);
     }
     return;
   }
@@ -473,9 +501,10 @@ async function openPanel(context: vscode.ExtensionContext, selectIssueId?: strin
         void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
         return;
       }
+      activeController = controller;
       void controller.handleMessage({ type: "requestState" });
-      if (selectIssueId) {
-        void panel.webview.postMessage({ type: "selectIssue", id: selectIssueId });
+      if (pendingAction) {
+        applyPendingAction(panel, controller, pendingAction);
       }
     }
   });
@@ -572,7 +601,16 @@ export function activate(context: vscode.ExtensionContext): void {
       void signOutGitLab(context);
     }),
     vscode.commands.registerCommand("remoteProjectManager.openIssueFromTree", (issueId: string) => {
-      void openPanel(context, issueId);
+      void openPanel(context, { kind: "selectIssue", id: issueId });
+    }),
+    vscode.commands.registerCommand("remoteProjectManager.newIssue", () => {
+      void openPanel(context, { kind: "newIssue" });
+    }),
+    vscode.commands.registerCommand("remoteProjectManager.newMilestone", () => {
+      void openPanel(context, { kind: "newMilestone" });
+    }),
+    vscode.commands.registerCommand("remoteProjectManager.refresh", () => {
+      void openPanel(context, { kind: "refresh" });
     }),
     vscode.window.registerTreeDataProvider("remoteProjectManager.sidebar", new MyIssuesTreeDataProvider(context)),
   );

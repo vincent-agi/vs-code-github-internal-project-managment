@@ -27,6 +27,18 @@
       {
         "command": "remoteProjectManager.signOutGitLab",
         "title": "Remote Project Manager: Sign Out of GitLab"
+      },
+      {
+        "command": "remoteProjectManager.newIssue",
+        "title": "Remote Project Manager: New Issue"
+      },
+      {
+        "command": "remoteProjectManager.newMilestone",
+        "title": "Remote Project Manager: New Milestone"
+      },
+      {
+        "command": "remoteProjectManager.refresh",
+        "title": "Remote Project Manager: Refresh"
       }
     ],
     "viewsContainers": {

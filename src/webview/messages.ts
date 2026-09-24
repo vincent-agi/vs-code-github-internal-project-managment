@@ -40,5 +40,7 @@ export type OutboundMessage =
     }
   | { readonly type: "repositoryOptions"; readonly options: readonly RepositoryOptionView[] }
   | { readonly type: "selectIssue"; readonly id: string }
+  | { readonly type: "openNewIssueForm" }
+  | { readonly type: "openNewMilestoneForm" }
   | { readonly type: "actionSuccess"; readonly message: string }
   | { readonly type: "error"; readonly message: string };

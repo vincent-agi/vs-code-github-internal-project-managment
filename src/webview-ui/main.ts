@@ -82,6 +82,8 @@ type OutboundMessage =
     }
   | { type: "repositoryOptions"; options: RepositoryOptionView[] }
   | { type: "selectIssue"; id: string }
+  | { type: "openNewIssueForm" }
+  | { type: "openNewMilestoneForm" }
   | { type: "actionSuccess"; message: string }
   | { type: "error"; message: string };
 
@@ -703,6 +705,18 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
     setActiveTab("issues");
     renderIssueList();
     renderIssueDetail();
+  } else if (message.type === "openNewIssueForm") {
+    selectedIssueId = null;
+    showNewIssueForm = true;
+    setActiveTab("issues");
+    renderIssueList();
+    renderIssueDetail();
+  } else if (message.type === "openNewMilestoneForm") {
+    selectedMilestoneId = null;
+    showNewMilestoneForm = true;
+    setActiveTab("milestones");
+    renderMilestoneList();
+    renderMilestoneDetail();
   } else if (message.type === "actionSuccess") {
     showToast(message.message);
   } else if (message.type === "error") {
