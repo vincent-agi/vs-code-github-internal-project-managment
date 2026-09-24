@@ -347,4 +347,17 @@ describe("GithubProvider.getCapabilities", () => {
     expect(capabilities.canWriteIssues).toBe(false);
     expect(capabilities.canWriteMilestones).toBe(false);
   });
+
+  it("maps the Triage role to issue write access, but not milestone write access", async () => {
+    const get = vi
+      .fn()
+      .mockResolvedValue({ data: { permissions: { pull: true, push: false, triage: true } } });
+    const client = makeClient({ repos: { get } as unknown as GithubClient["repos"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    const capabilities = await provider.getCapabilities();
+
+    expect(capabilities.canWriteIssues).toBe(true);
+    expect(capabilities.canWriteMilestones).toBe(false);
+  });
 });
