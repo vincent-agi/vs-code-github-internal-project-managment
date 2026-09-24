@@ -94,7 +94,7 @@ type InboundMessage =
   | {
       type: "updateIssue";
       id: string;
-      patch: Partial<Pick<IssueView, "title" | "body" | "state" | "assignees" | "labels">>;
+      patch: Partial<Pick<IssueView, "title" | "body" | "state" | "assignees" | "labels" | "milestoneId">>;
     }
   | {
       type: "createMilestone";
@@ -303,6 +303,17 @@ function renderIssueDetail(): void {
       <option value="closed" ${issue.state === "closed" ? "selected" : ""}>Closed</option>
     </select>
 
+    <label for="issue-milestone-editor">Milestone</label>
+    <select id="issue-milestone-editor" ${canWrite ? "" : "disabled"}>
+      <option value="">—</option>
+      ${currentMilestones
+        .map(
+          (candidate) =>
+            `<option value="${escapeAttr(candidate.id)}" ${issue.milestoneId === candidate.id ? "selected" : ""}>${escapeHtml(candidate.title)}</option>`,
+        )
+        .join("")}
+    </select>
+
     <label for="issue-labels-editor">Labels</label>
     <div id="issue-labels-editor" class="checkbox-list">
       ${
@@ -353,7 +364,8 @@ function renderIssueDetail(): void {
       const assignees = Array.from(
         byId<HTMLDivElement>("issue-assignees-editor").querySelectorAll<HTMLInputElement>("input[type=checkbox]:checked"),
       ).map((checkbox) => checkbox.value);
-      post({ type: "updateIssue", id: issue.id, patch: { title, state, body, labels, assignees } });
+      const milestoneId = byId<HTMLSelectElement>("issue-milestone-editor").value || null;
+      post({ type: "updateIssue", id: issue.id, patch: { title, state, body, labels, assignees, milestoneId } });
     });
 
     if (showAssignToMe && currentUser !== null) {
