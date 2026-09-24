@@ -128,6 +128,9 @@ let issueLabelFilter: string | null = null;
 let issueAssigneeFilter: string | null = null;
 let issueStateFilter: "all" | "open" | "closed" = "all";
 let milestoneStateFilter: "all" | "open" | "closed" = "all";
+const LIST_PAGE_SIZE = 50;
+let issueListPageSize = LIST_PAGE_SIZE;
+let milestoneListPageSize = LIST_PAGE_SIZE;
 let showNewIssueForm = false;
 let showNewMilestoneForm = false;
 let lastState: StateSnapshot | null = null;
@@ -223,7 +226,8 @@ function renderIssueList(): void {
     }
     return true;
   });
-  for (const issue of issues) {
+  const visibleIssues = issues.slice(0, issueListPageSize);
+  for (const issue of visibleIssues) {
     const item = document.createElement("div");
     item.className = "item" + (issue.id === selectedIssueId ? " selected" : "");
     const stateClass = issue.state === "closed" ? " state-closed" : "";
@@ -235,6 +239,17 @@ function renderIssueList(): void {
       renderIssueDetail();
     });
     list.appendChild(item);
+  }
+  if (issues.length > visibleIssues.length) {
+    const loadMore = document.createElement("button");
+    loadMore.type = "button";
+    loadMore.className = "load-more";
+    loadMore.textContent = `Load more (${issues.length - visibleIssues.length} remaining)`;
+    loadMore.addEventListener("click", () => {
+      issueListPageSize += LIST_PAGE_SIZE;
+      renderIssueList();
+    });
+    list.appendChild(loadMore);
   }
 }
 
@@ -408,7 +423,8 @@ function renderMilestoneList(): void {
     milestoneStateFilter === "all"
       ? currentMilestones
       : currentMilestones.filter((candidate) => candidate.state === milestoneStateFilter);
-  for (const milestone of milestones) {
+  const visibleMilestones = milestones.slice(0, milestoneListPageSize);
+  for (const milestone of visibleMilestones) {
     const item = document.createElement("div");
     item.className = "item" + (milestone.id === selectedMilestoneId ? " selected" : "");
     const stateClass = milestone.state === "closed" ? " state-closed" : "";
@@ -421,6 +437,17 @@ function renderMilestoneList(): void {
       renderMilestoneDetail();
     });
     list.appendChild(item);
+  }
+  if (milestones.length > visibleMilestones.length) {
+    const loadMore = document.createElement("button");
+    loadMore.type = "button";
+    loadMore.className = "load-more";
+    loadMore.textContent = `Load more (${milestones.length - visibleMilestones.length} remaining)`;
+    loadMore.addEventListener("click", () => {
+      milestoneListPageSize += LIST_PAGE_SIZE;
+      renderMilestoneList();
+    });
+    list.appendChild(loadMore);
   }
 }
 
@@ -582,6 +609,7 @@ byId<HTMLButtonElement>("tab-issues").addEventListener("click", () => {
   issueLabelFilter = null;
   issueAssigneeFilter = null;
   issueStateFilter = "all";
+  issueListPageSize = LIST_PAGE_SIZE;
   byId<HTMLSelectElement>("issue-label-filter").value = "";
   byId<HTMLSelectElement>("issue-assignee-filter").value = "";
   byId<HTMLSelectElement>("issue-state-filter").value = "all";
@@ -590,22 +618,27 @@ byId<HTMLButtonElement>("tab-issues").addEventListener("click", () => {
 });
 byId<HTMLInputElement>("issue-search").addEventListener("input", (event) => {
   issueSearchQuery = (event.target as HTMLInputElement).value;
+  issueListPageSize = LIST_PAGE_SIZE;
   renderIssueList();
 });
 byId<HTMLSelectElement>("issue-label-filter").addEventListener("change", (event) => {
   issueLabelFilter = (event.target as HTMLSelectElement).value || null;
+  issueListPageSize = LIST_PAGE_SIZE;
   renderIssueList();
 });
 byId<HTMLSelectElement>("issue-assignee-filter").addEventListener("change", (event) => {
   issueAssigneeFilter = (event.target as HTMLSelectElement).value || null;
+  issueListPageSize = LIST_PAGE_SIZE;
   renderIssueList();
 });
 byId<HTMLSelectElement>("issue-state-filter").addEventListener("change", (event) => {
   issueStateFilter = (event.target as HTMLSelectElement).value as "all" | "open" | "closed";
+  issueListPageSize = LIST_PAGE_SIZE;
   renderIssueList();
 });
 byId<HTMLSelectElement>("milestone-state-filter").addEventListener("change", (event) => {
   milestoneStateFilter = (event.target as HTMLSelectElement).value as "all" | "open" | "closed";
+  milestoneListPageSize = LIST_PAGE_SIZE;
   renderMilestoneList();
 });
 byId<HTMLButtonElement>("tab-milestones").addEventListener("click", () => setActiveTab("milestones"));
