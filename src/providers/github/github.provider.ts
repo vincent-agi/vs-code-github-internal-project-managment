@@ -21,6 +21,17 @@ import {
 type RawGithubPullRequestIssue = RawGithubIssue & { pull_request?: unknown };
 
 /**
+ * GitHub's REST API requires `due_on` as a full ISO 8601 date-time, but the
+ * webview's `<input type="date">` only ever produces a bare `YYYY-MM-DD`.
+ */
+function toGithubDueOn(dueOn: string | null | undefined): string | undefined {
+  if (!dueOn) {
+    return undefined;
+  }
+  return dueOn.includes("T") ? dueOn : `${dueOn}T00:00:00Z`;
+}
+
+/**
  * Minimal slice of the Octokit REST client this provider depends on.
  * Kept narrow so tests can supply a plain fake instead of a real Octokit
  * instance.
@@ -248,7 +259,7 @@ export class GithubProvider implements IProjectProvider {
       repo: this.repo,
       title: input.title,
       description: input.description,
-      due_on: input.dueOn ?? undefined,
+      due_on: toGithubDueOn(input.dueOn),
     });
     return mapGithubMilestoneToDomain(data);
   }
@@ -262,7 +273,7 @@ export class GithubProvider implements IProjectProvider {
       title: patch.title,
       description: patch.description,
       state: patch.state,
-      due_on: patch.dueOn ?? undefined,
+      due_on: toGithubDueOn(patch.dueOn),
     });
     return mapGithubMilestoneToDomain(data);
   }
