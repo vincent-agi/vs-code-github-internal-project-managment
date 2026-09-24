@@ -108,7 +108,7 @@ type InboundMessage =
   | {
       type: "updateMilestone";
       id: string;
-      patch: Partial<Pick<MilestoneView, "title" | "description" | "state">>;
+      patch: Partial<Pick<MilestoneView, "title" | "description" | "state" | "dueOn">>;
     }
   | { type: "createBranchForIssue"; id: string };
 
@@ -558,6 +558,14 @@ function renderMilestoneDetail(): void {
     <label for="milestone-description">Description</label>
     <textarea id="milestone-description" ${canWrite ? "" : "disabled"}>${escapeHtml(milestone.description)}</textarea>
 
+    <label for="milestone-due-editor">Due date</label>
+    <input
+      id="milestone-due-editor"
+      type="date"
+      value="${milestone.dueOn ? escapeAttr(milestone.dueOn.slice(0, 10)) : ""}"
+      ${canWrite ? "" : "disabled"}
+    />
+
     <button id="milestone-save" ${canWrite ? "" : "disabled"}>Save</button>
     ${canWrite ? "" : '<p class="read-only-note">Your account does not have write access to milestones.</p>'}
   `;
@@ -573,7 +581,12 @@ function renderMilestoneDetail(): void {
       const title = byId<HTMLInputElement>("milestone-title").value;
       const state = byId<HTMLSelectElement>("milestone-state").value as "open" | "closed";
       const description = byId<HTMLTextAreaElement>("milestone-description").value;
-      post({ type: "updateMilestone", id: milestone.id, patch: { title, state, description } });
+      const dueOn = byId<HTMLInputElement>("milestone-due-editor").value || null;
+      post({
+        type: "updateMilestone",
+        id: milestone.id,
+        patch: { title, state, description, dueOn },
+      });
     });
   }
 }
