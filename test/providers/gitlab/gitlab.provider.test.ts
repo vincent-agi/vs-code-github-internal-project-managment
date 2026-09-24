@@ -98,6 +98,59 @@ describe("GitlabProvider.createIssue", () => {
     );
     expect(issue.number).toBe(42);
   });
+
+  it("resolves assignee usernames to numeric ids via ProjectMembers, case-insensitively", async () => {
+    const create = vi.fn().mockResolvedValue(rawIssue);
+    const all = vi.fn().mockResolvedValue([
+      { id: 7, username: "OctoCat" },
+      { id: 8, username: "hubot" },
+    ]);
+    const client = makeClient({
+      Issues: { create } as unknown as GitlabClient["Issues"],
+      ProjectMembers: { all } as unknown as GitlabClient["ProjectMembers"],
+    });
+    const provider = new GitlabProvider(client, "acme/widgets");
+
+    await provider.createIssue({ title: "Bug", body: "", assignees: ["octocat"] });
+
+    expect(create).toHaveBeenCalledWith(
+      "acme/widgets",
+      "Bug",
+      expect.objectContaining({ assignee_ids: [7] }),
+    );
+  });
+
+  it("silently drops a username with no matching project member", async () => {
+    const create = vi.fn().mockResolvedValue(rawIssue);
+    const all = vi.fn().mockResolvedValue([{ id: 7, username: "octocat" }]);
+    const client = makeClient({
+      Issues: { create } as unknown as GitlabClient["Issues"],
+      ProjectMembers: { all } as unknown as GitlabClient["ProjectMembers"],
+    });
+    const provider = new GitlabProvider(client, "acme/widgets");
+
+    await provider.createIssue({ title: "Bug", body: "", assignees: ["octocat", "ghost"] });
+
+    expect(create).toHaveBeenCalledWith(
+      "acme/widgets",
+      "Bug",
+      expect.objectContaining({ assignee_ids: [7] }),
+    );
+  });
+
+  it("joins a labels array into a comma-separated string", async () => {
+    const create = vi.fn().mockResolvedValue(rawIssue);
+    const client = makeClient({ Issues: { create } as unknown as GitlabClient["Issues"] });
+    const provider = new GitlabProvider(client, "acme/widgets");
+
+    await provider.createIssue({ title: "Bug", body: "", labels: ["bug", "urgent"] });
+
+    expect(create).toHaveBeenCalledWith(
+      "acme/widgets",
+      "Bug",
+      expect.objectContaining({ labels: "bug,urgent" }),
+    );
+  });
 });
 
 describe("GitlabProvider.updateIssue", () => {
@@ -127,6 +180,24 @@ describe("GitlabProvider.updateIssue", () => {
       "acme/widgets",
       42,
       expect.objectContaining({ state_event: "reopen" }),
+    );
+  });
+
+  it("resolves assignee usernames to numeric ids the same way createIssue does", async () => {
+    const edit = vi.fn().mockResolvedValue(rawIssue);
+    const all = vi.fn().mockResolvedValue([{ id: 7, username: "octocat" }]);
+    const client = makeClient({
+      Issues: { edit } as unknown as GitlabClient["Issues"],
+      ProjectMembers: { all } as unknown as GitlabClient["ProjectMembers"],
+    });
+    const provider = new GitlabProvider(client, "acme/widgets");
+
+    await provider.updateIssue("acme/widgets#42", { assignees: ["octocat"] });
+
+    expect(edit).toHaveBeenCalledWith(
+      "acme/widgets",
+      42,
+      expect.objectContaining({ assignee_ids: [7] }),
     );
   });
 });

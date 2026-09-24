@@ -54,7 +54,7 @@ export interface GitlabClient {
     all(projectId: string): Promise<readonly { name: string }[]>;
   };
   ProjectMembers: {
-    all(projectId: string): Promise<readonly { username: string }[]>;
+    all(projectId: string): Promise<readonly { id: number; username: string }[]>;
   };
   Projects: {
     show(projectId: string): Promise<{
@@ -121,11 +121,32 @@ export class GitlabProvider implements IProjectProvider {
     return mapGitlabIssueToDomain(raw, this.projectPath);
   }
 
+  /**
+   * GitLab's issue endpoints take `assignee_ids` (numeric user ids), not
+   * usernames. Resolve the domain model's usernames against the
+   * project's members (case-insensitively, matching the convention used
+   * elsewhere in this codebase). A username with no matching member is
+   * silently dropped rather than failing the whole request.
+   */
+  private async resolveAssigneeIds(usernames: readonly string[] | undefined): Promise<number[] | undefined> {
+    if (usernames === undefined) {
+      return undefined;
+    }
+    if (usernames.length === 0) {
+      return [];
+    }
+    const members = await this.client.ProjectMembers.all(this.projectPath);
+    const idByUsername = new Map(members.map((member) => [member.username.toLowerCase(), member.id]));
+    return usernames
+      .map((username) => idByUsername.get(username.toLowerCase()))
+      .filter((id): id is number => id !== undefined);
+  }
+
   async createIssue(input: CreateIssueInput): Promise<IIssue> {
     const raw = await this.client.Issues.create(this.projectPath, input.title, {
       description: input.body,
-      labels: input.labels,
-      assignee_usernames: input.assignees,
+      labels: input.labels?.join(","),
+      assignee_ids: await this.resolveAssigneeIds(input.assignees),
       milestone_id: input.milestoneId ?? undefined,
     });
     return mapGitlabIssueToDomain(raw, this.projectPath);
@@ -135,8 +156,8 @@ export class GitlabProvider implements IProjectProvider {
     const raw = await this.client.Issues.edit(this.projectPath, this.parseIssueIid(id), {
       title: patch.title,
       description: patch.body,
-      labels: patch.labels,
-      assignee_usernames: patch.assignees,
+      labels: patch.labels?.join(","),
+      assignee_ids: await this.resolveAssigneeIds(patch.assignees),
       milestone_id: patch.milestoneId === undefined ? undefined : patch.milestoneId,
       state_event: patch.state
         ? mapDomainIssueStateToGitlab(patch.state) === "closed"
