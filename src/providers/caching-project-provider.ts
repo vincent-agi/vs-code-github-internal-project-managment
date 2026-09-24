@@ -32,6 +32,7 @@ const ASSIGNABLE_USERS_KEY = "assignableUsers";
  */
 export class CachingProjectProvider implements IProjectProvider {
   private readonly cache: TtlCache<unknown>;
+  private readonly inFlight = new Map<string, Promise<unknown>>();
 
   constructor(
     private readonly inner: IProjectProvider,
@@ -40,6 +41,13 @@ export class CachingProjectProvider implements IProjectProvider {
     this.cache = new TtlCache(ttlMs);
   }
 
+  /**
+   * Serves `key` from cache when fresh, otherwise calls `fetcher` — but
+   * two calls for the same key that overlap in time share a single
+   * in-flight fetch instead of each issuing their own request, so a
+   * near-simultaneous double-click (or an edit's own refetch racing an
+   * unrelated read) doesn't cost the API twice.
+   */
   private async cached<T>(
     key: string,
     options: FetchOptions | undefined,
@@ -51,9 +59,20 @@ export class CachingProjectProvider implements IProjectProvider {
         return hit;
       }
     }
-    const value = await fetcher();
-    this.cache.set(key, value);
-    return value;
+    const pending = this.inFlight.get(key) as Promise<T> | undefined;
+    if (pending) {
+      return pending;
+    }
+    const promise = fetcher()
+      .then((value) => {
+        this.cache.set(key, value);
+        return value;
+      })
+      .finally(() => {
+        this.inFlight.delete(key);
+      });
+    this.inFlight.set(key, promise);
+    return promise;
   }
 
   getCurrentUser(): Promise<IAuthenticatedUser> {

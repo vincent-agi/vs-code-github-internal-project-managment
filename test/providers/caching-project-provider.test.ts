@@ -100,6 +100,16 @@ describe("CachingProjectProvider.listIssues", () => {
 
     expect(inner.listIssues).toHaveBeenCalledTimes(2);
   });
+
+  it("deduplicates concurrent calls for the same key instead of issuing two fetches", async () => {
+    const inner = makeInner();
+    const provider = new CachingProjectProvider(inner, 60_000);
+
+    const [a, b] = await Promise.all([provider.listIssues(), provider.listIssues()]);
+
+    expect(inner.listIssues).toHaveBeenCalledTimes(1);
+    expect(a).toBe(b);
+  });
 });
 
 describe("CachingProjectProvider.listMilestones and getCapabilities", () => {
