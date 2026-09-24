@@ -508,7 +508,37 @@ function applyPendingAction(
  * ready — used by the sidebar tree's click-through (#25) and the
  * Command Palette entries (#35).
  */
+/**
+ * Serializes {@link openPanelImpl} calls: `activePanel`/`activeController`
+ * aren't assigned until after an `await resolveRepository()` (and, on
+ * the "resolved" path, an `await buildController()`), so two commands
+ * that both call `openPanel` in quick succession (e.g. a fast
+ * double-click on a sidebar tree item, or the Command Palette racing a
+ * tree click) would otherwise both see no active panel yet and each
+ * build their own — duplicate token prompts/API calls, and whichever
+ * finishes last silently wins `activePanel`/`activeProvider`, leaving
+ * them possibly out of sync with each other. A caller that arrives
+ * while another call is in flight waits for it, then re-checks (via the
+ * recursive call) instead of racing a second `buildController`.
+ */
+let openPanelInFlight: Promise<void> | undefined;
+
 async function openPanel(
+  context: vscode.ExtensionContext,
+  pendingAction?: PendingPanelAction,
+): Promise<void> {
+  if (openPanelInFlight) {
+    await openPanelInFlight;
+    return openPanel(context, pendingAction);
+  }
+  const run = openPanelImpl(context, pendingAction);
+  openPanelInFlight = run.finally(() => {
+    openPanelInFlight = undefined;
+  });
+  return run;
+}
+
+async function openPanelImpl(
   context: vscode.ExtensionContext,
   pendingAction?: PendingPanelAction,
 ): Promise<void> {
