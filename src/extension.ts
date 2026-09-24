@@ -25,6 +25,21 @@ import { pickDefaultBaseBranch } from "./core/git/pick-default-base-branch";
 import { PanelController } from "./webview/panel-controller";
 import type { InboundMessage, RepositoryOptionView } from "./webview/messages";
 import { getWebviewHtml } from "./webview/webview-html";
+import { extractIssueNumberFromBranch } from "./core/git/branch-issue-ref";
+import {
+  buildCommitMessage,
+  COMMIT_TYPES,
+  type CommitType,
+  type IssueReferenceKind,
+} from "./core/git/commit-message";
+import { parseGitmojis, type Gitmoji } from "./core/git/gitmoji";
+import { groupCommitsByIssue } from "./core/git/graph";
+import { lintCommits } from "./core/git/lint-commits";
+import { buildPrBody, buildPrTitle, type CommitRef } from "./core/git/pr-body";
+import { formatIssueContext } from "./core/ai/issue-context";
+import { formatMilestoneContext } from "./core/ai/milestone-context";
+import { replaceManagedSection } from "./core/ai/managed-section";
+import type { IMilestone } from "./core/models/milestone.model";
 
 function secretKeyFor(provider: ProviderKind): string {
   return `remoteProjectManager.token.${provider}`;
@@ -333,6 +348,26 @@ async function resolveAndConnect(
   }
 }
 
+/**
+ * Resolves a token and connects, reading connection settings
+ * (`cacheTtlSeconds`, `gitlabHost`) from configuration itself so callers
+ * don't each re-read them. Shared by {@link buildController},
+ * {@link MyIssuesTreeDataProvider}, and the AI-context/git-automation
+ * commands (#57, #58, #61), which all need a connected provider whether
+ * or not the panel is currently open.
+ */
+async function connectRepository(
+  context: vscode.ExtensionContext,
+  providerKind: ProviderKind,
+  repository: string,
+): Promise<{ provider: IProjectProvider; currentUser: IAuthenticatedUser }> {
+  const credentialStore = makeCredentialStore(context.secrets);
+  const config = vscode.workspace.getConfiguration("remoteProjectManager");
+  const cacheTtlSeconds = config.get<number>("cacheTtlSeconds", 180);
+  const gitlabHost = config.get<string>("gitlabHost", "") || undefined;
+  return resolveAndConnect(providerKind, repository, credentialStore, cacheTtlSeconds, gitlabHost);
+}
+
 /** Builds a fully wired PanelController for a resolved provider/repository. */
 async function buildController(
   context: vscode.ExtensionContext,
@@ -342,18 +377,11 @@ async function buildController(
   folderPath: string | undefined,
 ): Promise<PanelController> {
   const credentialStore = makeCredentialStore(context.secrets);
+  const { provider, currentUser } = await connectRepository(context, providerKind, repository);
+  activeFolderPath = folderPath;
+  activeProvider = provider;
 
   const config = vscode.workspace.getConfiguration("remoteProjectManager");
-  const cacheTtlSeconds = config.get<number>("cacheTtlSeconds", 180);
-  const gitlabHost = config.get<string>("gitlabHost", "") || undefined;
-  const { provider, currentUser } = await resolveAndConnect(
-    providerKind,
-    repository,
-    credentialStore,
-    cacheTtlSeconds,
-    gitlabHost,
-  );
-
   const autoBranchEnabled = config.get<boolean>("autoBranchOnInProgress", true);
   const branchNamePattern = config.get<string>("branchNamePattern", "");
   const pattern = branchNamePattern || undefined;
@@ -436,6 +464,9 @@ async function buildController(
 /** The single open panel and its controller, if any — see {@link openPanel}. */
 let activePanel: vscode.WebviewPanel | undefined;
 let activeController: PanelController | undefined;
+/** The workspace folder and connected provider backing `activeController`, if any (see {@link buildController}). */
+let activeFolderPath: string | undefined;
+let activeProvider: IProjectProvider | undefined;
 
 /** A deferred UI action to apply once the panel (existing or freshly built) has a ready controller. */
 type PendingPanelAction =
@@ -501,6 +532,8 @@ async function openPanel(
     if (activePanel === panel) {
       activePanel = undefined;
       activeController = undefined;
+      activeFolderPath = undefined;
+      activeProvider = undefined;
     }
   });
 
@@ -665,16 +698,10 @@ class MyIssuesTreeDataProvider implements vscode.TreeDataProvider<MyIssueSummary
     if (resolution.kind !== "resolved") {
       return undefined;
     }
-    const credentialStore = makeCredentialStore(this.context.secrets);
-    const config = vscode.workspace.getConfiguration("remoteProjectManager");
-    const cacheTtlSeconds = config.get<number>("cacheTtlSeconds", 180);
-    const gitlabHost = config.get<string>("gitlabHost", "") || undefined;
-    this.connection = await resolveAndConnect(
+    this.connection = await connectRepository(
+      this.context,
       resolution.providerKind,
       resolution.repository,
-      credentialStore,
-      cacheTtlSeconds,
-      gitlabHost,
     );
     return this.connection;
   }
@@ -697,7 +724,604 @@ async function signOutGitLab(
   );
 }
 
-export function activate(context: vscode.ExtensionContext): void {
+/** Display text for each Conventional Commits type, shown in the compose-commit QuickPick. */
+const COMMIT_TYPE_DESCRIPTIONS: Record<CommitType, string> = {
+  feat: "A new feature",
+  fix: "A bug fix",
+  docs: "Documentation only changes",
+  style: "Formatting; no code meaning change",
+  refactor: "Neither fixes a bug nor adds a feature",
+  perf: "A performance improvement",
+  test: "Adding or correcting tests",
+  build: "Build system or external dependencies",
+  ci: "CI configuration or scripts",
+  chore: "Other changes (tooling, config, ...)",
+  revert: "Reverts a previous commit",
+};
+
+let gitmojisCache: Gitmoji[] | undefined;
+
+/** Reads and validates the bundled `resources/gitmojis.json`, caching the result. */
+async function loadGitmojis(context: vscode.ExtensionContext): Promise<Gitmoji[]> {
+  if (gitmojisCache) {
+    return gitmojisCache;
+  }
+  const uri = vscode.Uri.joinPath(context.extensionUri, "resources", "gitmojis.json");
+  const bytes = await vscode.workspace.fs.readFile(uri);
+  const raw: unknown = JSON.parse(Buffer.from(bytes).toString("utf8"));
+  gitmojisCache = parseGitmojis(raw);
+  return gitmojisCache;
+}
+
+/** Interactive Gitmoji picker (#55): a searchable QuickPick over the bundled list. */
+async function showGitmojiPicker(context: vscode.ExtensionContext): Promise<Gitmoji | undefined> {
+  const gitmojis = await loadGitmojis(context);
+  const picked = await vscode.window.showQuickPick(
+    gitmojis.map((gitmoji) => ({
+      label: `${gitmoji.emoji}  ${gitmoji.code}`,
+      description: gitmoji.description,
+      gitmoji,
+    })),
+    {
+      title: "Pick a Gitmoji",
+      placeHolder: "Search by code or description",
+      matchOnDescription: true,
+    },
+  );
+  return picked?.gitmoji;
+}
+
+/** Minimal shape of the built-in `vscode.git` extension's exported API (version 1) that this extension uses. */
+interface MinimalGitApi {
+  readonly repositories: ReadonlyArray<{
+    readonly rootUri: vscode.Uri;
+    readonly inputBox: { value: string };
+  }>;
+}
+interface MinimalGitExtensionExports {
+  getAPI(version: 1): MinimalGitApi;
+}
+
+/**
+ * Finds the SCM input box for the repository at `cwd` via the built-in
+ * `vscode.git` extension, so a composed commit message can be dropped
+ * straight into Source Control instead of the user retyping it. Returns
+ * `undefined` if the git extension isn't installed/active or has no
+ * matching repository — callers fall back to the clipboard.
+ */
+async function getScmInputBox(cwd: string): Promise<{ value: string } | undefined> {
+  const extension = vscode.extensions.getExtension<MinimalGitExtensionExports>("vscode.git");
+  if (!extension) {
+    return undefined;
+  }
+  const exports = extension.isActive ? extension.exports : await extension.activate();
+  const api = exports.getAPI(1);
+  const repository =
+    api.repositories.find((candidate) => candidate.rootUri.fsPath === cwd) ?? api.repositories[0];
+  return repository?.inputBox;
+}
+
+/**
+ * Resolves the "active issue" for git-automation commands (#56, #57,
+ * #58, #61) from the current branch name, via
+ * {@link extractIssueNumberFromBranch} — consistent with how this
+ * extension names branches it creates itself
+ * (`remoteProjectManager.branchNamePattern`). Returns `null` when the
+ * branch encodes no issue number or doesn't match any known issue;
+ * callers fall back to letting the user pick manually.
+ */
+async function resolveActiveIssueViaBranch(
+  gitService: SimpleGitService,
+  cwd: string,
+  provider: IProjectProvider,
+): Promise<IIssue | null> {
+  let branch: string;
+  try {
+    branch = await gitService.getCurrentBranch(cwd);
+  } catch {
+    return null;
+  }
+  const issueNumber = extractIssueNumberFromBranch(branch);
+  if (issueNumber === null) {
+    return null;
+  }
+  const issues = await provider.listIssues();
+  return issues.find((issue) => issue.number === issueNumber) ?? null;
+}
+
+/** Looks up an issue's milestone, if it has one. */
+async function findMilestoneForIssue(
+  provider: IProjectProvider,
+  issue: IIssue,
+): Promise<IMilestone | null> {
+  if (!issue.milestoneId) {
+    return null;
+  }
+  const milestones = await provider.listMilestones();
+  return milestones.find((milestone) => milestone.id === issue.milestoneId) ?? null;
+}
+
+/**
+ * Gets a connected provider and workspace folder for AI-context/git
+ * commands (#57, #58, #61), reusing the open panel's connection when
+ * there is one, or connecting fresh otherwise — these commands are
+ * useful even without the panel open. Returns `null` when no repository
+ * can be resolved unambiguously (mirrors {@link resolveRepository}'s
+ * "none"/"candidates" cases, which these single-shot commands don't have
+ * a picker UI for).
+ */
+async function getActiveConnection(
+  context: vscode.ExtensionContext,
+): Promise<{ provider: IProjectProvider; cwd: string } | null> {
+  if (activeProvider && activeFolderPath) {
+    return { provider: activeProvider, cwd: activeFolderPath };
+  }
+  const resolution = await resolveRepository();
+  if (resolution.kind !== "resolved" || !resolution.folderPath) {
+    return null;
+  }
+  try {
+    const { provider } = await connectRepository(
+      context,
+      resolution.providerKind,
+      resolution.repository,
+    );
+    return { provider, cwd: resolution.folderPath };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Interactive commit-composition flow (#54, #55, #56): walks through
+ * type, scope, Gitmoji, description, and an optional issue reference
+ * (pre-filled from the current branch, see
+ * {@link resolveActiveIssueViaBranch}'s sibling
+ * {@link extractIssueNumberFromBranch}), then drops the composed message
+ * into the Source Control input box (or the clipboard, if the git
+ * extension isn't available).
+ */
+async function composeCommit(context: vscode.ExtensionContext): Promise<void> {
+  const cwd = activeFolderPath ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!cwd) {
+    void vscode.window.showErrorMessage("No workspace folder open.");
+    return;
+  }
+
+  const typePick = await vscode.window.showQuickPick(
+    COMMIT_TYPES.map((type) => ({ label: type, description: COMMIT_TYPE_DESCRIPTIONS[type] })),
+    { title: "Commit type", placeHolder: "Conventional Commits type" },
+  );
+  if (!typePick) {
+    return;
+  }
+
+  const scope = await vscode.window.showInputBox({
+    title: "Scope (optional)",
+    prompt: "e.g. 'commits', 'ui' — leave empty for none",
+  });
+  if (scope === undefined) {
+    return;
+  }
+
+  const gitmoji = await showGitmojiPicker(context);
+  if (!gitmoji) {
+    return;
+  }
+
+  const description = await vscode.window.showInputBox({
+    title: "Description",
+    prompt: "Short, imperative description of the change",
+    validateInput: (value) => (value.trim() ? undefined : "Description is required."),
+  });
+  if (!description) {
+    return;
+  }
+
+  const gitService = new SimpleGitService();
+  let issueNumber: number | undefined;
+  try {
+    const branch = await gitService.getCurrentBranch(cwd);
+    issueNumber = extractIssueNumberFromBranch(branch) ?? undefined;
+  } catch {
+    // No git repo / no commits yet — proceed with no detected issue.
+  }
+
+  if (issueNumber === undefined) {
+    const manual = await vscode.window.showInputBox({
+      title: "Issue number (optional)",
+      prompt: "Leave empty for no issue reference",
+      validateInput: (value) =>
+        value === "" || /^\d+$/.test(value) ? undefined : "Enter a number, or leave empty.",
+    });
+    if (manual === undefined) {
+      return;
+    }
+    if (manual !== "") {
+      issueNumber = Number(manual);
+    }
+  }
+
+  let issueReferenceKind: IssueReferenceKind = "none";
+  if (issueNumber !== undefined) {
+    const refPick = await vscode.window.showQuickPick(
+      [
+        {
+          label: `Fixes #${issueNumber}`,
+          description: "Closes the issue on merge to the default branch",
+          refKind: "fixes" as const,
+        },
+        {
+          label: `Refs #${issueNumber}`,
+          description: "References the issue without closing it",
+          refKind: "refs" as const,
+        },
+        { label: "No issue reference", refKind: "none" as const },
+      ],
+      { title: `Link this commit to issue #${issueNumber}?` },
+    );
+    if (!refPick) {
+      return;
+    }
+    issueReferenceKind = refPick.refKind;
+  }
+
+  const message = buildCommitMessage({
+    type: typePick.label,
+    scope: scope || undefined,
+    gitmoji: gitmoji.emoji,
+    description: description.trim(),
+    issueNumber,
+    issueReferenceKind,
+  });
+
+  const inputBox = await getScmInputBox(cwd);
+  if (inputBox) {
+    inputBox.value = message;
+    void vscode.window.showInformationMessage(
+      "Commit message ready in the Source Control input box.",
+    );
+  } else {
+    await vscode.env.clipboard.writeText(message);
+    void vscode.window.showInformationMessage(
+      "Commit message copied to clipboard (Git extension not available).",
+    );
+  }
+}
+
+/** Standalone Gitmoji picker command (#55): inserts at the cursor, or copies to clipboard with no active editor. */
+async function pickGitmojiCommand(context: vscode.ExtensionContext): Promise<void> {
+  const gitmoji = await showGitmojiPicker(context);
+  if (!gitmoji) {
+    return;
+  }
+  const editor = vscode.window.activeTextEditor;
+  if (editor) {
+    await editor.edit((editBuilder) => {
+      editBuilder.insert(editor.selection.active, gitmoji.emoji);
+    });
+    return;
+  }
+  await vscode.env.clipboard.writeText(gitmoji.emoji);
+  void vscode.window.showInformationMessage(
+    `Copied ${gitmoji.emoji} ${gitmoji.code} to clipboard.`,
+  );
+}
+
+/** The most recently copied issue context, exposed via this extension's API (see {@link activate}) for other extensions/agents. */
+let lastIssueContext: string | undefined;
+
+/** Copies the active issue's context (#57) to the clipboard for pasting into an AI coding assistant. */
+async function copyIssueContext(context: vscode.ExtensionContext): Promise<void> {
+  const connection = await getActiveConnection(context);
+  if (!connection) {
+    void vscode.window.showErrorMessage(
+      "No connected repository. Open the Remote Project Manager panel first, or set 'remoteProjectManager.repository'.",
+    );
+    return;
+  }
+  const { provider, cwd } = connection;
+  const gitService = new SimpleGitService();
+
+  let issue = await resolveActiveIssueViaBranch(gitService, cwd, provider);
+  if (!issue) {
+    const issues = await provider.listIssues();
+    const picked = await vscode.window.showQuickPick(
+      issues.map((candidate) => ({
+        label: `#${candidate.number} ${candidate.title}`,
+        issue: candidate,
+      })),
+      { title: "Copy context for which issue?", placeHolder: "Type to filter" },
+    );
+    if (!picked) {
+      return;
+    }
+    issue = picked.issue;
+  }
+
+  const milestone = await findMilestoneForIssue(provider, issue);
+  const contextBlock = formatIssueContext(issue, milestone);
+  lastIssueContext = contextBlock;
+  await vscode.env.clipboard.writeText(contextBlock);
+  void vscode.window.showInformationMessage(`Copied issue #${issue.number} context to clipboard.`);
+}
+
+/** Builds a prefilled GitHub compare or GitLab merge-request URL (fallback when direct PR creation isn't wired up). */
+function buildCompareUrl(
+  providerKind: ProviderKind,
+  repository: string,
+  baseBranch: string,
+  headBranch: string,
+  title: string,
+  body: string,
+  gitlabHost: string | undefined,
+): string {
+  if (providerKind === "github") {
+    const params = new URLSearchParams({ quick_pull: "1", title, body });
+    return `https://github.com/${repository}/compare/${encodeURIComponent(baseBranch)}...${encodeURIComponent(headBranch)}?${params.toString()}`;
+  }
+  const host = gitlabHost || "gitlab.com";
+  const params = new URLSearchParams({
+    "merge_request[source_branch]": headBranch,
+    "merge_request[target_branch]": baseBranch,
+    "merge_request[title]": title,
+    "merge_request[description]": body,
+  });
+  return `https://${host}/${repository}/-/merge_requests/new?${params.toString()}`;
+}
+
+/** Generates a PR/MR pre-filled from the active issue, its commits, and its milestone (#58). */
+async function createPrFromIssue(context: vscode.ExtensionContext): Promise<void> {
+  const connection = await getActiveConnection(context);
+  if (!connection) {
+    void vscode.window.showErrorMessage(
+      "No connected repository. Open the Remote Project Manager panel first, or set 'remoteProjectManager.repository'.",
+    );
+    return;
+  }
+  const { provider, cwd } = connection;
+  const gitService = new SimpleGitService();
+
+  const issue = await resolveActiveIssueViaBranch(gitService, cwd, provider);
+  if (!issue) {
+    void vscode.window.showErrorMessage(
+      "Could not determine which issue this branch is for. Rename the branch to include the issue number (e.g. 'fix/53-description').",
+    );
+    return;
+  }
+  const milestone = await findMilestoneForIssue(provider, issue);
+
+  let defaultBranch: string;
+  let currentBranch: string;
+  try {
+    defaultBranch = await gitService.getDefaultBranch(cwd);
+    currentBranch = await gitService.getCurrentBranch(cwd);
+  } catch (error) {
+    void vscode.window.showErrorMessage(
+      `Could not resolve branches: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return;
+  }
+
+  const log = await gitService.log(cwd, `origin/${defaultBranch}..HEAD`);
+  const commits: CommitRef[] = log.map((entry) => ({ hash: entry.hash, message: entry.message }));
+
+  const title = buildPrTitle(issue);
+  const body = buildPrBody(issue, milestone, commits);
+
+  const resolution = await resolveRepository();
+  if (resolution.kind !== "resolved") {
+    await vscode.env.clipboard.writeText(body);
+    void vscode.window.showInformationMessage(
+      "Could not resolve the repository URL; PR body copied to clipboard instead.",
+    );
+    return;
+  }
+
+  const gitlabHost =
+    vscode.workspace.getConfiguration("remoteProjectManager").get<string>("gitlabHost", "") ||
+    undefined;
+  const url = buildCompareUrl(
+    resolution.providerKind,
+    resolution.repository,
+    defaultBranch,
+    currentBranch,
+    title,
+    body,
+    gitlabHost,
+  );
+  await vscode.env.openExternal(vscode.Uri.parse(url));
+}
+
+/** Shows the semantic Git Graph (#59): commits grouped by referenced issue, browsable via QuickPick. */
+async function showGitGraph(): Promise<void> {
+  const cwd = activeFolderPath ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!cwd) {
+    void vscode.window.showErrorMessage("No workspace folder open.");
+    return;
+  }
+  const gitService = new SimpleGitService();
+  let log;
+  try {
+    log = await gitService.log(cwd, "-200");
+  } catch (error) {
+    void vscode.window.showErrorMessage(
+      `Could not read git log: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return;
+  }
+  const commits: CommitRef[] = log.map((entry) => ({ hash: entry.hash, message: entry.message }));
+  const groups = groupCommitsByIssue(commits);
+  if (groups.length === 0) {
+    void vscode.window.showInformationMessage("No commits found.");
+    return;
+  }
+
+  let issueTitles = new Map<number, string>();
+  if (activeProvider) {
+    try {
+      const issues = await activeProvider.listIssues();
+      issueTitles = new Map(issues.map((issue) => [issue.number, issue.title]));
+    } catch {
+      // Best-effort decoration only — fall back to plain "#N" labels.
+    }
+  }
+
+  const groupPick = await vscode.window.showQuickPick(
+    groups.map((group) => ({
+      label:
+        group.issueNumber === null
+          ? "Unlinked"
+          : `#${group.issueNumber}${issueTitles.has(group.issueNumber) ? " " + issueTitles.get(group.issueNumber) : ""}`,
+      description: `${group.commits.length} commit${group.commits.length === 1 ? "" : "s"}`,
+      group,
+    })),
+    { title: "Git Graph — grouped by issue", placeHolder: "Pick an issue to see its commits" },
+  );
+  if (!groupPick) {
+    return;
+  }
+
+  const commitPick = await vscode.window.showQuickPick(
+    groupPick.group.commits.map((commit) => ({
+      label: commit.hash.slice(0, 7),
+      description: commit.message.split("\n")[0],
+      commit,
+    })),
+    { title: groupPick.label, placeHolder: "Pick a commit to copy its hash" },
+  );
+  if (!commitPick) {
+    return;
+  }
+
+  await vscode.env.clipboard.writeText(commitPick.commit.hash);
+  void vscode.window.showInformationMessage(`Copied commit ${commitPick.label} to clipboard.`);
+}
+
+/** Lints recent commit history against the Gitmoji/Conventional Commit convention (#60), never rewriting history. */
+async function lintCommitHistory(): Promise<void> {
+  const cwd = activeFolderPath ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!cwd) {
+    void vscode.window.showErrorMessage("No workspace folder open.");
+    return;
+  }
+  const gitService = new SimpleGitService();
+  let log;
+  try {
+    log = await gitService.log(cwd, "-100");
+  } catch (error) {
+    void vscode.window.showErrorMessage(
+      `Could not read git log: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return;
+  }
+  const commits: CommitRef[] = log.map((entry) => ({ hash: entry.hash, message: entry.message }));
+  const results = lintCommits(commits);
+  const violations = results.filter((result) => !result.valid);
+
+  if (violations.length === 0) {
+    void vscode.window.showInformationMessage(
+      "All checked commits (last 100) comply with the Gitmoji/Conventional Commit convention.",
+    );
+    return;
+  }
+
+  const picked = await vscode.window.showQuickPick(
+    violations.map((violation) => ({
+      label: `${violation.hash.slice(0, 7)} ${violation.message.split("\n")[0]}`,
+      description: violation.reason,
+      detail: violation.suggestion
+        ? `Suggested: ${violation.suggestion.split("\n")[0]}`
+        : undefined,
+      violation,
+    })),
+    {
+      title: `${violations.length} non-compliant commit(s) in the last 100`,
+      placeHolder: "Pick one to copy its suggested message (never applied automatically)",
+    },
+  );
+  if (!picked?.violation.suggestion) {
+    return;
+  }
+
+  await vscode.env.clipboard.writeText(picked.violation.suggestion);
+  void vscode.window.showInformationMessage(
+    `Copied suggested message for ${picked.violation.hash.slice(0, 7)} to clipboard.`,
+  );
+}
+
+/** Exports the active milestone's context to a configurable Markdown file for AI agents (#61), idempotently. */
+async function exportMilestoneContext(context: vscode.ExtensionContext): Promise<void> {
+  const connection = await getActiveConnection(context);
+  if (!connection) {
+    void vscode.window.showErrorMessage(
+      "No connected repository. Open the Remote Project Manager panel first, or set 'remoteProjectManager.repository'.",
+    );
+    return;
+  }
+  const { provider, cwd } = connection;
+  const gitService = new SimpleGitService();
+
+  let milestone: IMilestone | null = null;
+  const issue = await resolveActiveIssueViaBranch(gitService, cwd, provider);
+  if (issue) {
+    milestone = await findMilestoneForIssue(provider, issue);
+  }
+  if (!milestone) {
+    const milestones = await provider.listMilestones();
+    const picked = await vscode.window.showQuickPick(
+      milestones.map((candidate) => ({
+        label: candidate.title,
+        description: `#${candidate.number}`,
+        milestone: candidate,
+      })),
+      { title: "Export context for which milestone?" },
+    );
+    if (!picked) {
+      return;
+    }
+    milestone = picked.milestone;
+  }
+  if (!milestone) {
+    return;
+  }
+  const resolvedMilestone = milestone;
+
+  const allIssues = await provider.listIssues();
+  const milestoneIssues = allIssues.filter(
+    (candidate) => candidate.milestoneId === resolvedMilestone.id,
+  );
+  const block = formatMilestoneContext(resolvedMilestone, milestoneIssues);
+
+  const config = vscode.workspace.getConfiguration("remoteProjectManager");
+  const relativePath =
+    config.get<string>("aiContextFile", ".github/copilot-instructions.md") ||
+    ".github/copilot-instructions.md";
+  const fileUri = vscode.Uri.joinPath(vscode.Uri.file(cwd), ...relativePath.split("/"));
+
+  let existing = "";
+  try {
+    const bytes = await vscode.workspace.fs.readFile(fileUri);
+    existing = Buffer.from(bytes).toString("utf8");
+  } catch {
+    // File doesn't exist yet — start from empty.
+  }
+
+  const updated = replaceManagedSection(existing, "milestone-context", block);
+
+  await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(fileUri, ".."));
+  await vscode.workspace.fs.writeFile(fileUri, Buffer.from(updated, "utf8"));
+
+  void vscode.window.showInformationMessage(`Exported milestone context to ${relativePath}.`);
+}
+
+/** API this extension exposes to other extensions (e.g. AI agents) via `extensions.getExtension(...).exports`. */
+export interface RemoteProjectManagerApi {
+  /** The Markdown context block from the last "Copy Issue Context for AI" invocation, if any. */
+  getActiveIssueContext(): string | undefined;
+}
+
+export function activate(context: vscode.ExtensionContext): RemoteProjectManagerApi {
   const treeDataProvider = new MyIssuesTreeDataProvider(context);
   context.subscriptions.push(
     vscode.commands.registerCommand("remoteProjectManager.openPanel", () => {
@@ -718,8 +1342,33 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("remoteProjectManager.refresh", () => {
       void openPanel(context, { kind: "refresh" });
     }),
+    vscode.commands.registerCommand("remoteProjectManager.composeCommit", () => {
+      void composeCommit(context);
+    }),
+    vscode.commands.registerCommand("remoteProjectManager.pickGitmoji", () => {
+      void pickGitmojiCommand(context);
+    }),
+    vscode.commands.registerCommand("remoteProjectManager.copyIssueContext", () => {
+      void copyIssueContext(context);
+    }),
+    vscode.commands.registerCommand("remoteProjectManager.createPrFromIssue", () => {
+      void createPrFromIssue(context);
+    }),
+    vscode.commands.registerCommand("remoteProjectManager.showGitGraph", () => {
+      void showGitGraph();
+    }),
+    vscode.commands.registerCommand("remoteProjectManager.lintCommitHistory", () => {
+      void lintCommitHistory();
+    }),
+    vscode.commands.registerCommand("remoteProjectManager.exportMilestoneContext", () => {
+      void exportMilestoneContext(context);
+    }),
     vscode.window.registerTreeDataProvider("remoteProjectManager.sidebar", treeDataProvider),
   );
+
+  return {
+    getActiveIssueContext: () => lastIssueContext,
+  };
 }
 
 export function deactivate(): void {

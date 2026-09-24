@@ -39,6 +39,34 @@
       {
         "command": "remoteProjectManager.refresh",
         "title": "Remote Project Manager: Refresh"
+      },
+      {
+        "command": "remoteProjectManager.composeCommit",
+        "title": "Remote Project Manager: Compose Commit (Conventional + Gitmoji)"
+      },
+      {
+        "command": "remoteProjectManager.pickGitmoji",
+        "title": "Remote Project Manager: Pick Gitmoji"
+      },
+      {
+        "command": "remoteProjectManager.copyIssueContext",
+        "title": "Remote Project Manager: Copy Issue Context for AI"
+      },
+      {
+        "command": "remoteProjectManager.createPrFromIssue",
+        "title": "Remote Project Manager: Create PR from Issue"
+      },
+      {
+        "command": "remoteProjectManager.showGitGraph",
+        "title": "Remote Project Manager: Show Git Graph (by Issue)"
+      },
+      {
+        "command": "remoteProjectManager.lintCommitHistory",
+        "title": "Remote Project Manager: Lint Commit History"
+      },
+      {
+        "command": "remoteProjectManager.exportMilestoneContext",
+        "title": "Remote Project Manager: Export Milestone Context for AI Agents"
       }
     ],
     "viewsContainers": {
@@ -101,6 +129,11 @@
           "type": "string",
           "default": "${type}/${issue_id}-${slug}",
           "description": "Pattern for auto-created branch names. Placeholders: ${type} (inferred from labels, e.g. fix/feature/docs/issue), ${issue_id} (issue number), ${slug} (sanitized title)."
+        },
+        "remoteProjectManager.aiContextFile": {
+          "type": "string",
+          "default": ".github/copilot-instructions.md",
+          "description": "Workspace-relative path 'Export Milestone Context for AI Agents' writes to. Only the extension-managed section (between HTML comment markers) is replaced on re-export; the rest of the file, if any, is left untouched."
         }
       }
     }
