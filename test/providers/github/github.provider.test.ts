@@ -108,7 +108,19 @@ describe("GithubProvider.createIssue", () => {
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({ owner: "acme", repo: "widgets", title: "Bug", body: "desc" }),
     );
+    expect(create.mock.calls[0][0].milestone).toBeUndefined();
     expect(issue.number).toBe(42);
+  });
+
+  it("resolves the milestone_number from milestoneId and sends it", async () => {
+    const create = vi.fn().mockResolvedValue({ data: rawIssue });
+    const listMilestones = vi.fn().mockResolvedValue({ data: [rawMilestone] });
+    const client = makeClient({ issues: { create, listMilestones } as unknown as GithubClient["issues"] });
+    const provider = new GithubProvider(client, "acme", "widgets");
+
+    await provider.createIssue({ title: "Bug", body: "desc", milestoneId: "7" });
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ milestone: 3 }));
   });
 });
 

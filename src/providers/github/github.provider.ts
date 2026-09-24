@@ -156,6 +156,9 @@ export class GithubProvider implements IProjectProvider {
   }
 
   async createIssue(input: CreateIssueInput): Promise<IIssue> {
+    const milestoneNumber = input.milestoneId
+      ? (await this.findRawMilestoneById(input.milestoneId)).number
+      : undefined;
     const { data } = await this.client.issues.create({
       owner: this.owner,
       repo: this.repo,
@@ -163,6 +166,7 @@ export class GithubProvider implements IProjectProvider {
       body: input.body,
       labels: input.labels,
       assignees: input.assignees,
+      milestone: milestoneNumber,
     });
     return mapGithubIssueToDomain(data, this.repoFullName);
   }
