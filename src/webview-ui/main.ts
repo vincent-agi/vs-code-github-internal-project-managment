@@ -66,6 +66,8 @@ interface StateSnapshot {
   milestones: MilestoneView[];
   capabilities: Capabilities;
   currentUser: AuthenticatedUser;
+  availableLabels: string[];
+  availableAssignableUsers: string[];
 }
 
 type OutboundMessage =
@@ -75,6 +77,8 @@ type OutboundMessage =
       milestones: MilestoneView[];
       capabilities: Capabilities;
       currentUser: AuthenticatedUser;
+      availableLabels: string[];
+      availableAssignableUsers: string[];
     }
   | { type: "repositoryOptions"; options: RepositoryOptionView[] }
   | { type: "actionSuccess"; message: string }
@@ -87,7 +91,11 @@ type InboundMessage =
       type: "createIssue";
       input: { title: string; body: string; milestoneId?: string | null };
     }
-  | { type: "updateIssue"; id: string; patch: Partial<Pick<IssueView, "title" | "body" | "state" | "assignees">> }
+  | {
+      type: "updateIssue";
+      id: string;
+      patch: Partial<Pick<IssueView, "title" | "body" | "state" | "assignees" | "labels">>;
+    }
   | {
       type: "createMilestone";
       input: { title: string; description?: string; dueOn?: string | null };
@@ -110,6 +118,8 @@ let currentCapabilities: Capabilities = {
   canWriteMilestones: false,
 };
 let currentUser: AuthenticatedUser | null = null;
+let currentAvailableLabels: string[] = [];
+let currentAvailableAssignableUsers: string[] = [];
 let selectedIssueId: string | null = null;
 let selectedMilestoneId: string | null = null;
 let issueMilestoneFilter: string | null = null;
@@ -262,6 +272,7 @@ function renderIssueDetail(): void {
   const milestone = findMilestone(issue.milestoneId);
   const isAssignedToMe = currentUser !== null && issue.assignees.includes(currentUser.username);
   const showAssignToMe = canWrite && currentUser !== null && !isAssignedToMe;
+  const labelOptions = Array.from(new Set([...currentAvailableLabels, ...issue.labels])).sort();
   detail.innerHTML = `
     <div class="meta">
       <div class="meta-row"><span class="meta-key">Number</span><span class="meta-value">#${issue.number}</span></div>
@@ -291,6 +302,20 @@ function renderIssueDetail(): void {
       <option value="closed" ${issue.state === "closed" ? "selected" : ""}>Closed</option>
     </select>
 
+    <label for="issue-labels-editor">Labels</label>
+    <div id="issue-labels-editor" class="checkbox-list">
+      ${
+        labelOptions.length > 0
+          ? labelOptions
+              .map(
+                (label) =>
+                  `<label><input type="checkbox" value="${escapeAttr(label)}" ${issue.labels.includes(label) ? "checked" : ""} ${canWrite ? "" : "disabled"} /> ${escapeHtml(label)}</label>`,
+              )
+              .join("")
+          : `<span class="read-only-note">No labels available on this repository.</span>`
+      }
+    </div>
+
     <label for="issue-body">Body</label>
     <textarea id="issue-body" ${canWrite ? "" : "disabled"}>${escapeHtml(issue.body)}</textarea>
 
@@ -307,7 +332,10 @@ function renderIssueDetail(): void {
       const title = byId<HTMLInputElement>("issue-title").value;
       const state = byId<HTMLSelectElement>("issue-state").value as "open" | "closed";
       const body = byId<HTMLTextAreaElement>("issue-body").value;
-      post({ type: "updateIssue", id: issue.id, patch: { title, state, body } });
+      const labels = Array.from(
+        byId<HTMLDivElement>("issue-labels-editor").querySelectorAll<HTMLInputElement>("input[type=checkbox]:checked"),
+      ).map((checkbox) => checkbox.value);
+      post({ type: "updateIssue", id: issue.id, patch: { title, state, body, labels } });
     });
 
     if (showAssignToMe && currentUser !== null) {
@@ -502,6 +530,8 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
       milestones: message.milestones,
       capabilities: message.capabilities,
       currentUser: message.currentUser,
+      availableLabels: message.availableLabels,
+      availableAssignableUsers: message.availableAssignableUsers,
     };
     if (!hasStateChanged(lastState, snapshot)) {
       return;
@@ -512,6 +542,8 @@ window.addEventListener("message", (event: MessageEvent<OutboundMessage>) => {
     currentMilestones = message.milestones;
     currentCapabilities = message.capabilities;
     currentUser = message.currentUser;
+    currentAvailableLabels = message.availableLabels;
+    currentAvailableAssignableUsers = message.availableAssignableUsers;
     byId<HTMLButtonElement>("issue-new").disabled = !currentCapabilities.canWriteIssues;
     byId<HTMLButtonElement>("milestone-new").disabled = !currentCapabilities.canWriteMilestones;
     renderIssueList();

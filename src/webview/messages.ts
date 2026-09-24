@@ -35,6 +35,8 @@ export type OutboundMessage =
       readonly milestones: readonly IMilestone[];
       readonly capabilities: ProviderCapabilities;
       readonly currentUser: IAuthenticatedUser;
+      readonly availableLabels: readonly string[];
+      readonly availableAssignableUsers: readonly string[];
     }
   | { readonly type: "repositoryOptions"; readonly options: readonly RepositoryOptionView[] }
   | { readonly type: "actionSuccess"; readonly message: string }

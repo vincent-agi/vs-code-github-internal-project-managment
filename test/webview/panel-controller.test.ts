@@ -79,6 +79,8 @@ describe("PanelController.handleMessage 'requestState'", () => {
       milestones: [milestone],
       capabilities: fullAccess,
       currentUser: { username: "octocat" },
+      availableLabels: ["bug"],
+      availableAssignableUsers: ["octocat"],
     });
   });
 });
@@ -94,6 +96,8 @@ describe("PanelController.handleMessage 'requestState' with forceRefresh", () =>
     expect(provider.listIssues).toHaveBeenCalledWith({ forceRefresh: true });
     expect(provider.listMilestones).toHaveBeenCalledWith({ forceRefresh: true });
     expect(provider.getCapabilities).toHaveBeenCalledWith({ forceRefresh: true });
+    expect(provider.listLabels).toHaveBeenCalledWith({ forceRefresh: true });
+    expect(provider.listAssignableUsers).toHaveBeenCalledWith({ forceRefresh: true });
   });
 });
 
