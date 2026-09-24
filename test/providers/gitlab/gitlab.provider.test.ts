@@ -375,4 +375,19 @@ describe("GitlabProvider.getCapabilities", () => {
 
     expect(capabilities.canWriteIssues).toBe(true);
   });
+
+  it("takes the higher of project_access and group_access when both are present", async () => {
+    const show = vi.fn().mockResolvedValue({
+      permissions: {
+        project_access: { access_level: 10 }, // Reporter, direct
+        group_access: { access_level: 40 }, // Maintainer, inherited
+      },
+    });
+    const client = makeClient({ Projects: { show } as unknown as GitlabClient["Projects"] });
+    const provider = new GitlabProvider(client, "acme/widgets");
+
+    const capabilities = await provider.getCapabilities();
+
+    expect(capabilities.canWriteIssues).toBe(true);
+  });
 });

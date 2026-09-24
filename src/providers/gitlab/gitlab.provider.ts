@@ -105,10 +105,14 @@ export class GitlabProvider implements IProjectProvider {
 
   async getCapabilities(_options?: FetchOptions): Promise<ProviderCapabilities> {
     const project = await this.client.Projects.show(this.projectPath);
-    const accessLevel =
-      project.permissions?.project_access?.access_level ??
-      project.permissions?.group_access?.access_level ??
-      0;
+    // GitLab can return both project_access and group_access at once
+    // (direct grant plus inherited group grant); the effective
+    // permission is the higher of the two, not "project_access if
+    // present, else group_access".
+    const accessLevel = Math.max(
+      project.permissions?.project_access?.access_level ?? 0,
+      project.permissions?.group_access?.access_level ?? 0,
+    );
     const canWrite = accessLevel >= DEVELOPER_ACCESS_LEVEL;
     return {
       canReadIssues: true,
